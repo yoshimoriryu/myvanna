@@ -1,18 +1,23 @@
 [tool.poetry]
 name = "myvanna"
 version = "0.1.0"
-description = "Creating vanna with FastAPI"
-authors = ["Your Name <you@example.com>"]
-license = "MIT"
+description = ""
+authors = ["yoshimoriryu <hamzah.chairil98@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.10"
 fastapi = "^0.116.1"
 uvicorn = "^0.35.0"
-vanna = "^0.7.9"
 sqlalchemy = "^2.0.43"
-
+psycopg2-binary = "^2.9.10"
+openai = "^1.99.9"
+vanna = "^0.7.9"
+qdrant-client = "^1.15.1"
+google-cloud-aiplatform = "^1.108.0"
+fastembed = "^0.7.1"
+google-generativeai = "^0.8.5"
+python-dotenv = "^1.1.1"
 
 [build-system]
 requires = ["poetry-core"]

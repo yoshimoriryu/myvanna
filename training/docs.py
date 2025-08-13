@@ -1,0 +1,35 @@
+documentation_texts = [
+    """
+    Indonesian University Terms:
+    - Mahasiswa = Student
+    - Prestasi = Achievement
+    - Fakultas = Faculty
+    - Program Studi = Study Program/Major
+    - Angkatan = Cohort/Year of Entry
+    - Bidikmisi = Government Scholarship Program
+    - NIM = Student ID Number
+    - Jenjang = Education Level (D3: Diploma, S1: Bachelor, S2: Master, S3: Doctorate)
+    - Agama = Religion
+    - Penghasilan Ortu = Parent's Income
+    """,
+
+    """
+    University Business Rules:
+    - Students can have statuses such as 'Aktif' (Active), 'Cuti' (Leave), 'Lulus' (Graduated), etc.
+    - Bidikmisi is 'IYA' if the student receives a government scholarship.
+    - Student achievements are recorded by year and level (e.g., National).
+    - Each student is linked to a study program and faculty.
+    - Achievement records may include a supervisor (lecturer).
+    - Student data can be grouped by religion, cohort, faculty, and study program.
+    """,
+
+    """
+    Database Structure:
+    - All queries use the 'vanna' schema and views (e.g., vanna.v_mahasiswa, vanna.v_prestasi_mawa).
+    - The view vanna.v_mahasiswa contains student data, including nim, name, faculty, study program, cohort, religion, parent's income, bidikmisi, etc.
+    - The view vanna.v_prestasi_mawa contains student achievement data, such as nim_mhs, user name, achievement title, level, year, supervisor name, etc.
+    - Numeric and important columns should be checked for NOT NULL in queries (e.g., WHERE nim IS NOT NULL).
+    - Relationships between data are made using columns like nim, faculty, study program, and year.
+    - Aggregate data (COUNT, SUM, AVG) should always use IS NOT NULL filters for accuracy.
+    """
+]
