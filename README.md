@@ -51,7 +51,6 @@ Create a `.env` file in the project root:
 
 ```env
 # Qdrant
-VANNA_COLLECTION_NAME=myvanna_sql_collection
 QDRANT_URL=http://localhost:6333
 
 # Gemini
