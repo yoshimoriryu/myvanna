@@ -20,6 +20,19 @@ python-dotenv = "^1.1.1"
 google-genai = "^1.30.0"
 google-cloud-aiplatform = ">=1.38"
 
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.1"
+black = "^25.1.0"
+
+[tool.pytest.ini_options]
+pythonpath = "."
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+skip-string-normalization = false
+
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

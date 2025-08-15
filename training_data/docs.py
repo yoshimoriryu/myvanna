@@ -12,7 +12,6 @@ documentation_texts = [
     - Agama = Religion
     - Penghasilan Ortu = Parent's Income
     """,
-
     """
     University Business Rules:
     - Students can have statuses such as 'Aktif' (Active), 'Cuti' (Leave), 'Lulus' (Graduated), etc.
@@ -22,7 +21,6 @@ documentation_texts = [
     - Achievement records may include a supervisor (lecturer).
     - Student data can be grouped by religion, cohort, faculty, and study program.
     """,
-
     """
     Database Structure:
     - All queries use the 'vanna' schema and views (e.g., vanna.v_mahasiswa, vanna.v_prestasi_mawa).
@@ -31,5 +29,5 @@ documentation_texts = [
     - Numeric and important columns should be checked for NOT NULL in queries (e.g., WHERE nim IS NOT NULL).
     - Relationships between data are made using columns like nim, faculty, study program, and year.
     - Aggregate data (COUNT, SUM, AVG) should always use IS NOT NULL filters for accuracy.
-    """
+    """,
 ]

@@ -22,7 +22,7 @@ if docs.documentation_texts:
 if sql.training_pairs:
     print("\nAdding SQL training pairs...")
     for pair in sql.training_pairs:
-        vn.add_question_sql(question=pair['question'], sql=pair['sql'])
+        vn.add_question_sql(question=pair["question"], sql=pair["sql"])
     print(f"Successfully added {len(sql.training_pairs)} SQL training pairs.")
 
 print("\nTraining complete.")

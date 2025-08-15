@@ -1,5 +1,5 @@
 ddl_statements = [
-'''
+    """
 CREATE VIEW vanna.v_mahasiswa AS
  SELECT 
     nim AS character varying(16) NOT NULL,
@@ -28,8 +28,8 @@ CREATE VIEW vanna.v_mahasiswa AS
     bidikmisi AS character varying(5)
    FROM mahasiswa;
 -- View of students
-''',
-'''
+""",
+    """
 CREATE VIEW vanna.v_prestasi_mawa AS
  SELECT 
     nim_mhs AS character varying(16),
@@ -57,5 +57,5 @@ CREATE VIEW vanna.v_prestasi_mawa AS
     penyelenggara_krp_khp AS character varying(255)
    FROM prestasi_mawa;
 -- View of student achievements
-''',
+""",
 ]
