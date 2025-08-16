@@ -1,6 +1,13 @@
-The 'faculty' table contains a list of all professors and academic staff.
-The 'publications' table lists all research papers published by faculty members.
-The 'author_id' in the publications table is a foreign key that links to the 'faculty_id' in the faculty table.
-'Citation count' refers to the number of times a publication has been cited by other research.
-A higher citation count generally indicates a more influential paper.
-The 'department' column specifies the academic department a faculty member belongs to, e.g., 'Computer Science', 'Physics'.
+# Dataset Schema and Business Rules
+
+## Tables
+- The `faculty` table contains a list of all professors, lecturers, and academic research staff.
+- The `publications` table lists all research papers published by faculty members.
+
+## Relationships
+- The `author_id` in the `publications` table is a foreign key that links to the `faculty_id` in the `faculty` table.
+
+## Key Concepts
+- **Faculty vs. Professor**: The `faculty` table includes everyone. The `title` column specifies their job role (e.g., 'Professor', 'Associate Professor', 'Lecturer'). To find just professors, a query must filter where the `title` column contains the word 'Professor'.
+- **Citation Count**: This refers to the number of times a publication has been cited by other research. A higher citation count generally indicates a more influential paper.
+- **Department**: This column specifies the academic department a faculty member belongs to, such as 'Computer Science' or 'Physics'.

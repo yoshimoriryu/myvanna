@@ -46,6 +46,7 @@ def execute_sql(query: SQLQuery):
         with engine.connect() as connection:
             df = pd.read_sql(text(query.sql), connection)
         # Convert to JSON for the API response
+        print(f"--- Returning results as JSON: ---\n{df.to_json(orient='records')}\n---------------------------------")
         return df.to_dict(orient="records")
     except Exception as e:
         # Return a proper error message to the chatbot

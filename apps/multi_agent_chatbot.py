@@ -207,8 +207,6 @@ def execute_sql_node(state: GraphState) -> dict:
 
         # Convert the JSON response back to a DataFrame, then to Markdown for the LLM
         result_json = response.json()
-        if not result_json:
-            return {"explanation": "The query executed successfully but returned no results."}
 
         df = pd.DataFrame(result_json)
         result_str = df.to_markdown(index=False)
@@ -235,6 +233,7 @@ def explain_results_node(state: GraphState) -> dict:
     Uses the LLM to explain the query results in natural language.
     """
     print("--- Node: Explain Results ---")
+
     question = state["messages"][-1].content
     query_result = state["query_result"]
 
@@ -243,7 +242,10 @@ def explain_results_node(state: GraphState) -> dict:
     ---
     {query_result}
     ---
-    Please provide a brief, natural language summary of this data that directly answers the user's question."""
+    Please provide a brief, natural language summary of this data that directly answers the user's question.
+
+    IMPORTANT: If the data section above is empty or contains only table headers, it signifies that the query returned no results. In this case, do not simply state 'no results were found.' Instead, provide a helpful interpretation based on the user's question. For example, if the user asked "Which professors were hired in 2050?", a good response would be "Based on the available data, no professors were hired in the year 2050."
+    """
 
     explain_agent_model = os.getenv("EXPLAIN_AGENT_MODEL", "gemini-2.5-flash")
     model = genai.GenerativeModel(explain_agent_model)
@@ -313,7 +315,14 @@ def build_graph():
     # flow for this agent.
     workflow.add_edge("domain_router", "generate_sql")
     workflow.add_edge("generate_sql", "execute_sql")
-    workflow.add_edge("execute_sql", "explain_results")
+    workflow.add_conditional_edges(
+        "execute_sql",
+        lambda state: "error" if state.get("error_message") else "success",
+        {
+            "success": "explain_results",
+            "error": END,
+        },
+    )
 
     # After the specialist agents have done their work, the conversation turn is over.
     # The graph will finish and return the final state.

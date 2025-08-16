@@ -24,9 +24,15 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
   # because it's easier than crafting a curl command.
   echo "Deleting collection..."
   poetry run python -c "
-import config
+from vanna_engine import config
 from qdrant_client import QdrantClient
-client = QdrantClient(url=config.QDRANT_URL, api_key=config.QDRANT_API_KEY)
+# MODIFIED: Initialize the client without gRPC preference
+client = QdrantClient(
+    host=config.QDRANT_HOST,
+    port=config.QDRANT_PORT,
+    api_key=config.QDRANT_API_KEY,
+    https=False
+)
 result = client.delete_collection(collection_name='$COLLECTION_NAME')
 if result:
     print(\"Successfully deleted collection: '$COLLECTION_NAME'\")

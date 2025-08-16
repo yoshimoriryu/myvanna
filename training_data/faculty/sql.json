@@ -26,5 +26,9 @@
     {
         "question": "How many publications does each department have?",
         "sql": "SELECT f.department, COUNT(p.publication_id) AS number_of_publications FROM faculty f JOIN publications p ON f.faculty_id = p.author_id GROUP BY f.department ORDER BY number_of_publications DESC;"
+    },
+    {
+        "question": "How many people hold the title of Professor in the Physics department?",
+        "sql": "SELECT COUNT(*) FROM faculty WHERE department = 'Physics' AND title = 'Professor';"
     }
 ]
