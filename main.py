@@ -1,12 +1,13 @@
 import logging
-from typing import Optional
+import os
+from typing import Dict, Optional
 
 from qdrant_client import QdrantClient
 
 import config
 from my_vanna import MyVanna
 
-# Configure logging
+# (logging configuration remains the same)
 log_levels = {
     "DEBUG": logging.DEBUG,
     "INFO": logging.INFO,
@@ -20,56 +21,142 @@ logging.basicConfig(
 )
 
 
-if __name__ == "__main__":
-    print("--- Vanna CLI Initializing ---")
+def initialize_vanna_instances() -> Dict[str, MyVanna]:
+    """
+    Connects to Qdrant to discover all existing Vanna collections and initializes
+    a MyVanna instance for each one.
 
-    # 1. Instantiate the Qdrant client using settings from config.py
-    qdrant_client = QdrantClient(url=config.QDRANT_URL, api_key=config.QDRANT_API_KEY)
+    This is the "Vanna Factory" - it treats Qdrant as the source of truth for
+    what domains are available.
 
-    # 2. Instantiate our custom Vanna class, injecting the client
-    vn = MyVanna(config={"client": qdrant_client})
-
-    # 3. Connect to the database using settings from config.py
-    vn.connect_to_postgres(
-        host=config.POSTGRES_HOST,
-        dbname=config.POSTGRES_DB,
-        user=config.POSTGRES_USER,
-        password=config.POSTGRES_PASSWORD,
-        port=config.POSTGRES_PORT,
-    )
-
-    print("\n--- Initial Checks ---")
-    try:
-        training_data = vn.get_training_data()
-        print(
-            f"Training data available: {len(training_data) if not training_data.empty else 0} entries"
-        )
-    except Exception as e:
-        print(f"Failed to get training data: {e}")
+    Returns:
+        A dictionary mapping domain names to their configured MyVanna instances.
+    """
+    print("--- Discovering trained Vanna domains from Qdrant ---")
+    instances = {}
 
     try:
-        test_result = vn.run_sql("SELECT 1 as test")
-        print(f"Database connection test: {'Success' if test_result is not None else 'Failed'}")
-    except Exception as e:
-        print(f"Database connection error: {e}")
+        # Create one client to rule them all
+        qdrant_client = QdrantClient(url=config.QDRANT_URL, api_key=config.QDRANT_API_KEY)
 
-    print("\n--- Vanna CLI Ready (type 'exit' to quit) ---")
+        # Get all collections that exist in the Qdrant instance
+        collections_response = qdrant_client.get_collections()
+        all_collections = collections_response.collections
+
+        # Filter for collections that follow our naming convention: 'vanna_<domain_name>'
+        vanna_collections = [c for c in all_collections if c.name.startswith("vanna_")]
+
+        for collection in vanna_collections:
+            collection_name = collection.name
+            # Extract the domain name from the collection name (e.g., 'vanna_students' -> 'students')
+            domain = collection_name.replace("vanna_", "", 1)
+
+            print(
+                f"Initializing instance for domain: '{domain}' (collection: '{collection_name}')..."
+            )
+
+            # Create a specific config for this domain's instance
+            vanna_config = config.VANNA_CONFIG_DICT.copy()
+            # IMPORTANT: We pass the *same* client to all instances for efficiency
+            vanna_config["client"] = qdrant_client
+            vanna_config["collection_name"] = collection_name
+
+            vn_instance = MyVanna(config=vanna_config)
+            vn_instance.connect_to_postgres(
+                host=config.POSTGRES_HOST,
+                dbname=config.POSTGRES_DB,
+                user=config.POSTGRES_USER,
+                password=config.POSTGRES_PASSWORD,
+                port=config.POSTGRES_PORT,
+            )
+            instances[domain] = vn_instance
+
+    except Exception as e:
+        print(f"\nFATAL ERROR: Could not connect to Qdrant to discover domains: {e}")
+        print("Please ensure Qdrant is running and accessible.")
+        # Return empty dict so the program can exit gracefully
+        return {}
+
+    return instances
+
+
+def select_domain(domains: list) -> Optional[str]:
+    """
+    Displays a numbered menu for the user to select a domain.
+
+    Args:
+        domains: A list of available domain names.
+
+    Returns:
+        The selected domain name as a string, or None if the user wants to exit.
+    """
+
+    print("\nPlease select a domain to query:")
+    for i, domain in enumerate(domains):
+        print(f"  {i + 1}: {domain}")
+    print("  0: Exit")
+
     while True:
-        question = input("\nAsk Vanna: ")
-        if question.lower() == "exit":
+        try:
+            choice = input("Enter your choice (number): ")
+            choice_num = int(choice)
+            if choice_num == 0:
+                return None
+            if 1 <= choice_num <= len(domains):
+                return domains[choice_num - 1]
+            else:
+                print("Invalid number. Please try again.")
+        except ValueError:
+            print("Invalid input. Please enter a number.")
+
+
+if __name__ == "__main__":
+    vanna_instances = initialize_vanna_instances()
+
+    if not vanna_instances:
+        print("\nNo domains found in 'training_data' directory. Please run the trainer first.")
+        exit()
+
+    domains_list = list(vanna_instances.keys())
+    print(f"\n--- Vanna CLI Ready ---")
+
+    while True:
+        current_domain = select_domain(domains_list)
+        if current_domain is None:
             break
 
-        try:
-            generated_sql = vn.get_sql(question)
+        print(
+            f"\nSwitched to domain: '{current_domain}'. You can type 'switch' at any time to change domains."
+        )
 
-            if generated_sql:
-                print("\n--- Generated SQL (not executed) ---")
-                print(generated_sql)
-                print("------------------------------------")
-            else:
-                print("\nCould not generate SQL for the question.")
+        while True:
+            question = input(f"Ask Vanna (domain: {current_domain}): ")
 
-        except Exception as e:
-            print(f"\nAn error occurred: {e}")
+            if question.lower() == "exit":
+                # Allow exiting from the inner loop as well
+                current_domain = "exit"
+                break
+            if question.lower() == "switch":
+                break
+
+            try:
+                # Get the correct Vanna instance from our dictionary
+                active_vanna = vanna_instances[current_domain]
+
+                # Use the get_sql method now built into the class
+                generated_sql = active_vanna.get_sql(question)
+
+                if generated_sql:
+                    print("\n--- Generated SQL (not executed) ---")
+                    print(generated_sql)
+                    print("------------------------------------")
+                else:
+                    print("\nCould not generate SQL for the question.")
+
+            except Exception as e:
+                print(f"\nAn error occurred: {e}")
+
+        if current_domain == "exit":
+            break
 
     print("\nGoodbye!")

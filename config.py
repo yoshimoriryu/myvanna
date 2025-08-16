@@ -30,3 +30,19 @@ LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 # --- Pre-flight Checks ---
 if not GEMINI_API_KEY:
     raise ValueError("GEMINI_API_KEY is not set in the environment variables.")
+
+# --- Configuration Dictionary ---
+# This dictionary is created from the module-level constants above.
+# It provides a convenient way to pass the entire configuration to classes
+# or functions, while still allowing for static analysis and autocomplete
+# when importing the 'config' module directly (e.g., config.QDRANT_URL).
+VANNA_CONFIG_DICT = {
+    "api_key": GEMINI_API_KEY,
+    "model": VANNA_MODEL,
+    "embedding_model": VANNA_EMBED_MODEL,
+    "temperature": VANNA_TEMPERATURE,
+    "max_tokens": VANNA_MAX_TOKENS,
+    "collection_name": VANNA_COLLECTION_NAME,
+    "qdrant_url": QDRANT_URL,
+    "qdrant_api_key": QDRANT_API_KEY,
+}

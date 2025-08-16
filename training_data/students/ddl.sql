@@ -1,22 +1,20 @@
-ddl_statements = [
-    """
 CREATE VIEW vanna.v_mahasiswa AS
  SELECT 
-    nim AS character varying(16) NOT NULL,
-    nama AS character varying(128),
-    tempat_lahir AS character varying(64),
-    tgl_lahir AS timestamp(0) without time zone,
-    jalur AS character varying(64),
-    penerimaan AS character varying(100),
-    alamat AS character varying(256),
-    fakultas AS character varying(64),
-    prodi AS character varying(256),
-    status AS character varying(2),
-    sumber_biaya AS character varying(20),
-    status_mahasiswa AS character varying(64),
-    angkatan AS numeric(38,0) NOT NULL,
-    jenis_kelamin AS character(1),
-    jenjang AS character varying(20),
+    nim character varying(16) NOT NULL, -- student ID
+    nama character varying(128), -- name of student
+    tempat_lahir character varying(64), -- place of birth
+    tgl_lahir timestamp(0) without time zone, -- date of birth
+    jalur character varying(64), -- admission route
+    penerimaan character varying(100), -- admission
+    alamat character varying(256), -- address
+    fakultas character varying(64),
+    prodi character varying(256),
+    status character varying(2),
+    sumber_biaya character varying(20), -- source of funding
+    status_mahasiswa character varying(64), -- student status
+    angkatan numeric(38,0) NOT NULL, -- year of entry
+    jenis_kelamin character(1),
+    jenjang character varying(20), -- study level
     asal_kota AS character varying(64),
     asal_provinsi AS character varying(64),
     asal_negara AS character varying(512),
@@ -28,8 +26,11 @@ CREATE VIEW vanna.v_mahasiswa AS
     bidikmisi AS character varying(5)
    FROM mahasiswa;
 -- View of students
-""",
-    """
+-- Column: tgl_lahir (date of birth)
+-- Use this to derive "umur" (age) with:
+-- EXTRACT(YEAR FROM AGE(NOW(), tgl_lahir)) AS umur
+
+
 CREATE VIEW vanna.v_prestasi_mawa AS
  SELECT 
     nim_mhs AS character varying(16),
@@ -57,5 +58,3 @@ CREATE VIEW vanna.v_prestasi_mawa AS
     penyelenggara_krp_khp AS character varying(255)
    FROM prestasi_mawa;
 -- View of student achievements
-""",
-]
