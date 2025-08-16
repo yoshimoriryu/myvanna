@@ -1,28 +1,33 @@
 #!/bin/bash
 
-# This command ensures that the script will exit immediately if any command fails.
 set -e
 
-# This function defines the cleanup process.
 cleanup() {
   echo "--- Tests finished. Tearing down Docker services... ---"
-  # The 'down' command stops and removes the containers.
   docker compose -f docker-compose-tests.yml down
 }
 
-# 'trap' is a shell command that registers the 'cleanup' function to be called
-# automatically when the script exits, for any reason (success, failure, or interrupt).
-# This GUARANTEES that your services will be shut down.
 trap cleanup EXIT
 
 echo "--- Starting Docker services (Postgres & Qdrant) in the background... ---"
 docker compose -f docker-compose-tests.yml up -d
 
-echo "--- Waiting for services to initialize... ---"
-# Give the containers a few seconds to start up and be ready for connections.
-sleep 5
+# --- ENHANCEMENT: Wait for services to be healthy ---
+echo "--- Waiting for services to become healthy... ---"
+max_wait=30
+waited=0
+# Wait for Postgres
+until docker compose -f docker-compose-tests.yml exec -T postgres pg_isready -U postgres &> /dev/null || [ $waited -ge $max_wait ]; do
+  echo "Waiting for PostgreSQL... ($waited/$max_wait)"
+  sleep 1
+  waited=$((waited + 1))
+done
+
+if [ $waited -ge $max_wait ]; then
+  echo "PostgreSQL did not become healthy in time. Aborting."
+  exit 1
+fi
+echo "PostgreSQL is ready."
 
 echo "--- Running pytest suite... ---"
-# Run pytest. The "$@" passes along any arguments you might give to this script.
-# For example, running './scripts/run_tests.sh -k "lifecycle"' would work.
-poetry run pytest -s "$@"
+poetry run pytest -v "$@"

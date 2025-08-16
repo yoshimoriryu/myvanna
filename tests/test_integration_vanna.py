@@ -1,8 +1,9 @@
 import pytest
 from qdrant_client import QdrantClient
 import os
-from my_vanna import MyVanna
-import config
+
+from vanna_engine import config
+from vanna_engine.my_vanna import MyVanna
 
 
 @pytest.fixture(scope="module")
@@ -26,8 +27,7 @@ def vanna_test_instance():
         "embedding_model": config.VANNA_EMBED_MODEL,
         "temperature": config.VANNA_TEMPERATURE,
         "max_tokens": config.VANNA_MAX_TOKENS,
-        "qdrant_url": config.QDRANT_URL,
-        "qdrant_api_key": config.QDRANT_API_KEY,
+        "qdrant_url": config.QDRANT_URL
     }
 
     vn_test = MyVanna(config=vanna_config)
@@ -110,9 +110,9 @@ def test_full_training_data_lifecycle(vanna_test_instance):
     print(f"Successfully retrieved {len(all_data)} data points.")
 
     print("\nTesting removal of training data...")
-    assert vanna_test_instance.remove_training_data(ddl_id), "Removing DDL failed"
-    assert vanna_test_instance.remove_training_data(doc_id), "Removing documentation failed"
-    assert vanna_test_instance.remove_training_data(sql_id), "Removing Question/SQL failed"
+    assert vanna_test_instance.remove_training_data([ddl_id]), "Removing DDL failed"
+    assert vanna_test_instance.remove_training_data([doc_id]), "Removing documentation failed"
+    assert vanna_test_instance.remove_training_data([sql_id]), "Removing Question/SQL failed"
     print("Successfully removed all training data.")
 
     print("\nVerifying removal...")

@@ -7,7 +7,6 @@ from qdrant_client import QdrantClient
 from vanna_engine import config
 from vanna_engine.my_vanna import MyVanna
 
-# (logging configuration remains the same)
 log_levels = {
     "DEBUG": logging.DEBUG,
     "INFO": logging.INFO,

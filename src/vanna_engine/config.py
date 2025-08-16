@@ -44,5 +44,4 @@ VANNA_CONFIG_DICT = {
     "max_tokens": VANNA_MAX_TOKENS,
     "collection_name": VANNA_COLLECTION_NAME,
     "qdrant_url": QDRANT_URL,
-    "qdrant_api_key": QDRANT_API_KEY,
 }

@@ -9,7 +9,7 @@ packages = [{include = "vanna_engine", from = "src"}]
 [tool.poetry.dependencies]
 python = "^3.10"
 fastapi = "^0.116.1"
-uvicorn = "^0.35.0"
+uvicorn = {extras = ["standard"], version = "^0.35.0"}
 sqlalchemy = "^2.0.43"
 psycopg2-binary = "^2.9.10"
 openai = "^1.99.9"
@@ -20,13 +20,13 @@ google-generativeai = "^0.8.5"
 python-dotenv = "^1.1.1"
 google-genai = "^1.30.0"
 google-cloud-aiplatform = ">=1.38"
+langgraph = "^0.6.5"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.1"
 black = "^25.1.0"
-
-[tool.pytest.ini_options]
-pythonpath = "."
+httpx = "^0.28.1"
+pytest-mock = "^3.14.1"
 
 [tool.black]
 line-length = 100
@@ -37,3 +37,6 @@ skip-string-normalization = false
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+pythonpath = "."
