@@ -22,31 +22,26 @@ This is where the PostgreSQL database resides. It's a high-security vault. Only 
 
 ---
 
-## The Bridge: The Secure API Microservice
+## Architectural Comparison: Why We Deliberately Don't Use VannaBase `connect_to_postgres()`
 
-The `secure_api` is the only bridge between these two buildings. It acts as an armored, single-lane checkpoint.
+This gets to the core of why our architecture is so robust. We have consciously rejected the simple, monolithic model in favor of a more secure, decoupled microservice pattern.
 
+### Vanna's Default (Monolithic) Model:
 
 ```mermaid
-+------------------------------------------+         +--------------------------------------+
-|        BUILDING A: CHATBOT ZONE          |         |       BUILDING B: SECURE VAULT       |
-|                                          |         |                                      |
-|  [User] <> [LangGraph Chatbot]           |         |       [Private PostgreSQL DB]        |
-|                |                         |         |                  ^                   |
-|                | (Generates a SQL query) |         |                  | (Direct, trusted  |
-|                v                         |         |                  |  connection)      |
-|         (The agent has NO DB keys)       |         |                  |                   |
-|                                          |         |                  |                   |
-+------------------------------------------+         |   +-----------------------------+    |
-                 |                                   |   | [Secure API Microservice]   |    |
-                 | (HTTP Request: "Please run this") |   | (THE ONLY THING WITH DB KEYS) |  |
-                 +-------------------------------------> |                             |    |
-                                                         +-----------------------------+    |
-                  <------------------------------------+                                    |
-                   (HTTP Response: "Here are the safe                                       |
-                                    results")        |                                      |
-                                                     +--------------------------------------+
-
-                  <-------------------- THE AIR GAP -------------------->
-              (The Chatbot can never cross this line to touch the database)
+graph TD
+    User --> Vanna[Vanna Object: <br> - AI Logic <br> - RAG <br> - DB Credentials];
+    Vanna -- Direct Connection --> DB[(PostgreSQL)];
 ```
+- **Pros**: Simple, fast to set up.
+- **Cons**: Tightly coupled, credentials are in the AI zone, single point of failure.
+
+### Our Secure (Microservice) Model:
+```mermaid
+graph TD
+    User --> Chatbot[Chatbot Agent: <br> - AI Logic <br> - RAG <br> - 🚫 NO DB Credentials];
+    Chatbot -- HTTP Request --> API[🛡️ Secure API: <br> - Security Rules <br> - DB Credentials];
+    API -- Direct Connection --> DB[(PostgreSQL)];
+```
+- **Pros**: Highly secure (air-gapped), decoupled, auditable, scalable.
+- **Cons**: More components to manage (which we've already done).

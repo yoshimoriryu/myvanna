@@ -40,6 +40,7 @@ The project follows a standard `src` layout to cleanly separate the core library
 ├── scripts/
 │   ├── run_tests.sh              # Automated script to manage and run the test suite
 │   └── run_training.sh           # Convenience script to run the data synchronizer
+├── architecture.md               # **NEW**: Explains the secure, air-gapped architecture
 ├── domain_metadata.json          # Configuration for the Domain Router
 ├── docker-compose.yml            # Main Docker Compose for development
 ├── docker-compose-tests.yml      # Isolated Docker Compose for testing
@@ -55,7 +56,7 @@ The project follows a standard `src` layout to cleanly separate the core library
 
 -   **Multi-Agent Architecture**: Uses LangGraph to create a robust agentic system with intent and domain routing.
 -   **Metadata-Driven Domain Routing**: Uses a configurable `domain_metadata.json` file with rich descriptions to accurately determine the correct data domain for a user's question.
--   **Secure, Air-Gapped Execution**: The Vanna/LLM agent **never** has direct access to the database. It generates SQL, which is then sent to a separate, secure FastAPI for execution.
+-   **Secure, Air-Gapped Execution**: The Vanna/LLM agent **never** has direct access to the database. It generates SQL, which is then sent to a separate, secure FastAPI for execution. For more details, see the [**Architecture Guide**](architecture.md).
 -   **Production-Ready Configuration**: Dynamically constructs service URLs from their constituent parts (scheme, host, port), supporting both local HTTP and production HTTPS deployments.
 -   **Automated & Isolated Testing**: A `run_tests.sh` script that spins up a dedicated, isolated test environment on separate ports using a `.env.test` file, preventing collisions with the development environment.
 
@@ -79,25 +80,6 @@ poetry install
 
 **A. Create `.env` file:**
 Create a `.env` file from the `.env.example`. This file configures the main development environment.
-
-```dotenv .env.example
-# .env
-# --- Qdrant ---
-# The scheme, host, and port are combined to create the full QDRANT_URL
-# Use 'http' for local development and 'https' for production with a reverse proxy.
-QDRANT_SCHEME="http"
-QDRANT_HOST="localhost"
-QDRANT_PORT="6333"
-QDRANT_API_KEY="your-super-secret-and-random-key-here"
-
-# --- Google Gemini ---
-GEMINI_API_KEY="your-gemini-api-key"
-
-# --- PostgreSQL Connection (for Docker Compose and Secure API) ---
-POSTGRES_HOST="localhost"
-POSTGRES_PORT="5432"
-# ... etc.
-```
 
 **B. Create `domain_metadata.json` file:**
 This file is **required** and configures the Domain Router. Create a `domain_metadata.json` file in the project root. For each domain you want to activate, add an entry with a concise, descriptive summary.
@@ -141,7 +123,7 @@ poetry run python apps/multi_agent_chatbot.py
 
 ### 6️⃣ Run Integration Tests (Recommended)
 
-Verify that the entire setup is working correctly with the automated test script. It will automatically use the `.env.test` file and `docker-compose-tests.yml` to create a safe, isolated environment.
+Verify that the entire setup is working correctly with the automated test script.
 ```bash
 ./scripts/run_tests.sh
 ```
@@ -156,6 +138,6 @@ The system operates as a sophisticated, multi-agent workflow orchestrated by Lan
 
 2.  **SQL Generation**: The query is passed to the appropriate `MyVanna` instance, which uses RAG to generate a SQL query.
 
-3.  **Secure Execution**: The SQL is passed to an **Execution Node** which asks the user for approval, then calls the **Secure Execution API**.
+3.  **Secure Execution**: The SQL is passed to an **Execution Node** which asks the user for approval, then calls the **Secure Execution API**. See the [**Architecture Guide**](architecture.md) for a detailed breakdown of this security model.
 
 4.  **Data Retrieval & Explanation**: The Secure API executes the query and returns the results as JSON. This is passed to an **Explanation Node** which synthesizes a final, natural-language answer.
