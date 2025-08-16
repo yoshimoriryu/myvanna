@@ -1,7 +1,8 @@
 import pytest
 from qdrant_client import QdrantClient
 import os
-from main import MyVanna
+from my_vanna import MyVanna
+import config
 
 
 @pytest.fixture(scope="module")
@@ -13,13 +14,29 @@ def vanna_test_instance():
     test_collection_name = f"test_collection_{os.urandom(4).hex()}"
     print(f"\n--- Setting up test instance with collection: {test_collection_name} ---")
 
-    test_qdrant_client = QdrantClient(url=os.getenv("QDRANT_URL", "http://localhost:6333"))
+    qdrant_client = QdrantClient(url=config.QDRANT_URL, api_key=config.QDRANT_API_KEY)
 
-    vn_test = MyVanna(
-        config={"client": test_qdrant_client, "collection_name": test_collection_name}
-    )
+    # The MyVanna class now requires a full configuration dictionary.
+    # We build it here using values from the config module.
+    vanna_config = {
+        "client": qdrant_client,
+        "collection_name": test_collection_name,
+        "api_key": config.GEMINI_API_KEY,
+        "model": config.VANNA_MODEL,
+        "embedding_model": config.VANNA_EMBED_MODEL,
+        "temperature": config.VANNA_TEMPERATURE,
+        "max_tokens": config.VANNA_MAX_TOKENS,
+        "qdrant_url": config.QDRANT_URL,
+        "qdrant_api_key": config.QDRANT_API_KEY,
+    }
+
+    vn_test = MyVanna(config=vanna_config)
     vn_test.connect_to_postgres(
-        host="localhost", dbname="chatbot", user="postgres", password="password", port="5432"
+        host=config.POSTGRES_HOST,
+        dbname=config.POSTGRES_DB,
+        user=config.POSTGRES_USER,
+        password=config.POSTGRES_PASSWORD,
+        port=config.POSTGRES_PORT,
     )
 
     yield vn_test
@@ -102,3 +119,25 @@ def test_full_training_data_lifecycle(vanna_test_instance):
     all_data_after_removal = vanna_test_instance.get_training_data()
     assert len(all_data_after_removal) == 0, "Training data not removed correctly"
     print("Successfully verified that collection is empty after removal.")
+
+
+def test_get_sql_method(vanna_test_instance):
+    """Tests the end-to-end SQL generation via the new get_sql method."""
+    print("\nTesting get_sql method...")
+
+    # First, add some context so the model has something to work with.
+    ddl_id = vanna_test_instance.add_ddl("CREATE TABLE customers (id INT, name VARCHAR(255), email VARCHAR(255))")
+    assert ddl_id, "Failed to add DDL for get_sql test"
+
+    question = "Show me the names of all customers"
+    generated_sql = vanna_test_instance.get_sql(question)
+
+    print(f"Question: '{question}'")
+    print(f"Generated SQL: {generated_sql}")
+
+    assert generated_sql is not None, "get_sql should not return None"
+    assert isinstance(generated_sql, str), "get_sql should return a string"
+    assert "customers" in generated_sql.lower(), "Generated SQL should reference the correct table"
+    assert "name" in generated_sql.lower(), "Generated SQL should reference the correct column"
+
+

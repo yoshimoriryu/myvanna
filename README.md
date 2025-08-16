@@ -107,12 +107,11 @@ poetry run python training.py
 
 ### 6️⃣ Run the Integration Tests (Optional but Recommended)
 
-Before running the CLI, you can verify that your entire setup is working correctly by running the test suite.
+This project includes a script that automatically starts the required Docker services, runs the test suite, and tears them down afterward.
 
+From the project root, simply run:
 ```bash
-poetry run pytest -s
-```
-The `-s` flag shows the print statements from the tests, giving you detailed output.
+./scripts/run_tests.sh
 
 ### 7️⃣ Run the CLI
 
