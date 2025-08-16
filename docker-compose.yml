@@ -25,6 +25,11 @@ services:
       - qdrant_data:/qdrant/storage
     # restart: unless-stopped
 
+
 volumes:
   postgres_data:
   qdrant_data:
+
+networks:
+  myvanna_network:
+    driver: bridge

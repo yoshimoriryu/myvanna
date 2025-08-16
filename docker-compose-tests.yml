@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  postgres:
+  postgres-test:
     image: postgres:17
     container_name: myvanna-postgres-test
     environment:
@@ -14,7 +14,7 @@ services:
       - postgres_data_test:/var/lib/postgresql/data
     # restart: unless-stopped
 
-  qdrant:
+  qdrant-test:
     image: qdrant/qdrant
     container_name: myvanna-qdrant-test
     ports:
@@ -29,3 +29,7 @@ services:
 volumes:
   postgres_data_test:
   qdrant_data_test:
+
+networks:
+  test_network:
+    driver: bridge
