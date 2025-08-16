@@ -39,6 +39,7 @@ The project follows a standard `src` layout to cleanly separate the core library
 ├── scripts/
 │   ├── run_tests.sh              # Automated script to manage and run the test suite
 │   └── run_training.sh           # Convenience script to run the data synchronizer
+├── domain_metadata.json          # **NEW**: Configuration for the Domain Router
 ├── docker-compose.yml            # Defines Postgres and Qdrant services
 ├── .env.example
 ├── pyproject.toml
@@ -49,13 +50,12 @@ The project follows a standard `src` layout to cleanly separate the core library
 
 ## ⚙️ Features
 
--   **Multi-Agent Architecture**: Uses LangGraph to create a robust agentic system. A top-level **Routing Agent** analyzes user intent and dispatches tasks to specialized agents (e.g., a SQL Agent or a General Chat Agent).
--   **Automatic Domain Routing**: The AI automatically determines the correct data domain (e.g., `students`, `finance`) for a user's question, providing a seamless user experience.
--   **Secure, Air-Gapped Execution**: The Vanna/LLM agent **never** has direct access to the database. It generates SQL, which is then sent to a separate, secure FastAPI for execution, following enterprise-grade security best practices.
--   **Idempotent Data Synchronization**: The `synchronizer.py` tool doesn't just add data; it surgically syncs the state of local training files with the Qdrant vector store, performing additions, updates, and deletions as needed.
--   **Clean & Decoupled**: Follows professional software design principles (`src` layout, dependency management via Poetry, centralized configuration).
--   **One-Command Environment**: Uses `docker-compose` to start, manage, and stop the entire infrastructure stack (Postgres & Qdrant).
--   **Automated & Isolated Testing**: A `run_tests.sh` script that spins up a dedicated, isolated test environment in Docker, runs the full test suite, and tears it down automatically.
+-   **Multi-Agent Architecture**: Uses LangGraph to create a robust agentic system. A top-level **Routing Agent** analyzes user intent and dispatches tasks to specialized agents.
+-   **Metadata-Driven Domain Routing**: The AI uses a configurable `domain_metadata.json` file with rich descriptions to accurately determine the correct data domain (e.g., `students`, `finance`) for a user's question.
+-   **Secure, Air-Gapped Execution**: The Vanna/LLM agent **never** has direct access to the database. It generates SQL, which is then sent to a separate, secure FastAPI for execution.
+-   **Idempotent Data Synchronization**: The `synchronizer.py` tool surgically syncs local training files with the Qdrant vector store.
+-   **Clean & Decoupled**: Follows professional software design principles (`src` layout, externalized configuration).
+-   **Automated & Isolated Testing**: A `run_tests.sh` script that spins up a dedicated, isolated test environment in Docker.
 
 <br>
 
@@ -75,31 +75,28 @@ poetry install
 
 ### 3️⃣ Configure Environment
 
-Create a `.env` file from the `.env.example`. **Generate a secure Qdrant API key** (e.g., with `openssl rand -base64 32`).
+**A. Create `.env` file:**
+Create a `.env` file from the `.env.example` and fill in your API keys.
 
-```dotenv
-# .env
-# --- Qdrant ---
-QDRANT_URL="http://localhost:6333"
-QDRANT_API_KEY="your-super-secret-and-random-key-here"
+**B. Create `domain_metadata.json` file:**
+This file is **required** and configures the Domain Router. Create a `domain_metadata.json` file in the project root. For each domain you want to activate, add an entry with a concise, descriptive summary.
 
-# --- Google Gemini ---
-GEMINI_API_KEY="your-gemini-api-key"
-
-# --- Vanna Model Configuration (Defaults) ---
-VANNA_MODEL="gemini-1.5-pro"
-VANNA_EMBED_MODEL="models/embedding-001"
-ROUTER_AGENT_MODEL="gemini-pro" # Optional: Specify a different model for the router
-
-# --- PostgreSQL Connection (for Docker Compose and Secure API) ---
-POSTGRES_HOST="localhost"
-POSTGRES_PORT="5432"
-POSTGRES_USER="postgres"
-POSTGRES_PASSWORD="yourpassword"
-POSTGRES_DB="chatbot"
+```json domain_metadata.json
+{
+    "students": "Contains data about student enrollment, courses, demographics, and academic status."
+}
 ```
 
-### 4️⃣ Start Services (3 Terminals Required)
+### 4️⃣ Train a Domain
+
+For each domain defined in your metadata file, you must train it using the `run_training.sh` script.
+
+**Example for the "students" domain:**
+```bash
+./scripts/run_training.sh students
+```
+
+### 5️⃣ Start Services (3 Terminals Required)
 
 The full application runs as three separate processes. You will need to open three terminals in the project's root directory.
 
@@ -117,20 +114,11 @@ poetry run uvicorn secure_api.main:app --reload
 ```bash
 poetry run python apps/multi_agent_chatbot.py
 ```
-
-### 5️⃣ Train a Domain
-
-Before you can chat, you must train at least one domain. Use the `run_training.sh` convenience script, passing it the name of a subdirectory in `training_data/`.
-
-**Example for the "students" domain:**
-```bash
-./scripts/run_training.sh students
-```
-The chatbot application will automatically detect any trained domains when it starts.
+The chatbot will start and only load the domains that are present in both `domain_metadata.json` and Qdrant.
 
 ### 6️⃣ Run Integration Tests (Recommended)
 
-Verify that the entire setup is working correctly with the automated test script. This is the **safest way to test**, as it uses a dedicated, temporary environment.
+Verify that the entire setup is working correctly with the automated test script.
 ```bash
 ./scripts/run_tests.sh
 ```
@@ -141,16 +129,12 @@ Verify that the entire setup is working correctly with the automated test script
 
 The system operates as a sophisticated, multi-agent workflow orchestrated by LangGraph.
 
-1.  **Intent Routing**: When a user sends a message, it first goes to an **Intent Router**. This agent uses an LLM to decide if the query is a general conversational question (`GENERAL_CHAT`) or if it requires database access (`SQL_AGENT`).
+1.  **Intent Routing**: When a user sends a message, it first goes to an **Intent Router** to decide if the query is for the `GENERAL_CHAT` agent or the `SQL_AGENT`.
 
-2.  **Domain Routing**: If the intent is `SQL_AGENT`, the query is passed to a **Domain Router**. This agent analyzes the question and decides which data domain (e.g., `students`, `finance`) is the most relevant, based on the domains that have been trained.
+2.  **Domain Routing**: If the intent is `SQL_AGENT`, the query is passed to a **Domain Router**. This agent reads the `domain_metadata.json` file to create a rich prompt. It uses this context to analyze the user's question and decide which data domain is the most relevant.
 
-3.  **SQL Generation**: The query is then passed to the appropriate `MyVanna` instance for that domain. The `vanna_engine` uses its RAG capabilities to generate a SQL query based on the DDL, documentation, and SQL pairs it was trained on.
+3.  **SQL Generation**: The query is then passed to the appropriate `MyVanna` instance for that domain. The `vanna_engine` uses its RAG capabilities to generate a SQL query.
 
-4.  **Secure Execution**: The generated SQL is **not** executed by the agent. Instead, it is passed to an **Execution Node** in the LangGraph flow. This node performs two critical functions:
-    a.  **User Approval**: It presents the SQL to the user for approval—a vital safety check.
-    b.  **API Call**: Upon approval, it sends the SQL query via an HTTP request to the standalone **Secure Execution API**.
+4.  **Secure Execution**: The generated SQL is passed to an **Execution Node** which first asks the user for approval, then calls the **Secure Execution API**.
 
-5.  **Data Retrieval**: The Secure API is the only component with direct database credentials. It receives the SQL, runs it against the private PostgreSQL database, and returns the results as JSON.
-
-6.  **Explanation**: The JSON result is passed back to the LangGraph agent, which sends the original question and the data to an **Explanation Node**. This node uses an LLM to synthesize a final, natural-language answer for the user.
+5.  **Data Retrieval & Explanation**: The Secure API (the only component with DB credentials) executes the query and returns the results as JSON. This is passed to an **Explanation Node** which synthesizes a final, natural-language answer.

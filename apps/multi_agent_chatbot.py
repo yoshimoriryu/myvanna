@@ -4,12 +4,10 @@ from typing import List, TypedDict, Optional
 from langchain_core.messages import BaseMessage, HumanMessage
 import requests
 import pandas as pd
-
-# --- This is a crucial step to ensure the script can find the vanna_engine package ---
-# Add the 'src' directory to the Python path
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-sys.path.append(os.path.join(project_root, 'src'))
-# ---
+import google.generativeai as genai
+from qdrant_client import QdrantClient
+from sqlalchemy import create_engine, text
+import json
 
 from vanna_engine import config
 from vanna_engine.my_vanna import MyVanna
@@ -36,20 +34,23 @@ class GraphState(TypedDict):
     explanation: Optional[str]
     error_message: Optional[str]
 
-
-# --- Imports for Agent Nodes ---
-import pandas as pd
-import google.generativeai as genai
-from qdrant_client import QdrantClient
-from sqlalchemy import create_engine, text
-
-# --- Agent Nodes (The "Tools") ---
-
-# This is a global dictionary to hold our initialized Vanna instances.
-# This avoids re-initializing them on every single request.
 VANNA_INSTANCES = {}
-
 AVAILABLE_DOMAINS = []
+
+def load_domain_metadata():
+    """
+    Loads the domain metadata from the external JSON file.
+    """
+    try:
+        # The path is relative to the project root
+        with open('domain_metadata.json', 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        print("ERROR: 'domain_metadata.json' not found. Please create it.")
+        return {}
+    except json.JSONDecodeError:
+        print("ERROR: Could not decode 'domain_metadata.json'. Please check for syntax errors.")
+        return {}
 
 def initialize_llm_and_vanna():
     """
@@ -57,6 +58,11 @@ def initialize_llm_and_vanna():
     This function should be called once when the application starts.
     """
     global AVAILABLE_DOMAINS
+
+    domain_metadata = load_domain_metadata()
+    if not domain_metadata:
+        return []
+
     print("--- Initializing Gemini LLM ---")
     genai.configure(api_key=config.GEMINI_API_KEY)
 
@@ -65,22 +71,33 @@ def initialize_llm_and_vanna():
         qdrant_client = QdrantClient(url=config.QDRANT_URL, api_key=config.QDRANT_API_KEY)
         collections_response = qdrant_client.get_collections()
         all_collections = collections_response.collections
-        vanna_collections = [c for c in all_collections if c.name.startswith("vanna_")]
+        all_collections = {c.name.replace("vanna_", "", 1): c for c in collections_response.collections if c.name.startswith("vanna_")}
+        
+        # --- MODIFICATION: We now iterate through our metadata ---
+        for domain_name, description in domain_metadata.items():
+            if domain_name not in all_collections:
+                print(f"WARNING: Domain '{domain_name}' is in metadata but no matching 'vanna_{domain_name}' collection was found in Qdrant.")
+                continue
 
-        for collection in vanna_collections:
-            domain = collection.name.replace("vanna_", "", 1)
-            print(f"Initializing instance for domain: '{domain}'...")
+            print(f"Initializing instance for domain: '{domain_name}'...")
             
             vanna_config = config.VANNA_CONFIG_DICT.copy()
             vanna_config["client"] = qdrant_client
-            vanna_config["collection_name"] = collection.name
+            vanna_config["collection_name"] = f"vanna_{domain_name}"
 
             vn_instance = MyVanna(config=vanna_config)
-            VANNA_INSTANCES[domain] = vn_instance
+            VANNA_INSTANCES[domain_name] = vn_instance
         
-        print(f"--- Initialization complete. Found {len(VANNA_INSTANCES)} domains. ---")
+        # The list of available domains is now the keys from our metadata
         AVAILABLE_DOMAINS = list(VANNA_INSTANCES.keys())
+        
+        if not AVAILABLE_DOMAINS:
+             print("WARNING: No trainable domains with metadata were found in Qdrant.")
+             return []
+
+        print(f"--- Initialization complete. Found and loaded {len(AVAILABLE_DOMAINS)} domains with metadata. ---")
         return AVAILABLE_DOMAINS
+
     except Exception as e:
         print(f"\nFATAL ERROR: Could not connect to Qdrant to discover domains: {e}")
         return []
@@ -323,13 +340,18 @@ def domain_router_node(state: GraphState) -> dict:
     print("--- Node: Domain Router ---")
     question = state["messages"][-1].content
     
-    # This prompt is engineered to force the LLM to choose from the list
+    # Prompt for the domain router
+    domain_metadata = load_domain_metadata()
+    domain_options = "\n".join(
+        [f"- **{name}**: {desc}" for name, desc in domain_metadata.items() if name in AVAILABLE_DOMAINS]
+    )
+
     prompt = f"""You are an expert at classifying a user's question into a specific data domain.
     Based on the user's question, you must decide which of the following domains is the most relevant.
     Your answer must be ONLY ONE of the domain names from the list.
 
     DOMAINS:
-    {AVAILABLE_DOMAINS}
+    {domain_options}
 
     USER'S QUESTION:
     "{question}"
@@ -340,16 +362,16 @@ def domain_router_node(state: GraphState) -> dict:
     model = genai.GenerativeModel(domain_router_model)
     response = model.generate_content(prompt)
     
-    # Clean up the response to get just the domain name
-    chosen_domain = response.text.strip().replace("'", "").replace('"', '')
+    chosen_domain = response.text.strip().replace("'", "").replace('"', '').replace("*", "")
     
     print(f"Domain Router decision: {chosen_domain}")
     
     if chosen_domain in AVAILABLE_DOMAINS:
         return {"vanna_domain": chosen_domain}
     else:
-        # If the LLM hallucinates a domain, we have a fallback
-        return {"error_message": f"Could not determine the correct data domain for your question. Please be more specific."}
+        # Fallback if the LLM hallucinates a domain or provides a conversational answer
+        print(f"WARNING: Router LLM returned an invalid domain. Fallback needed.")
+        return {"error_message": f"I can't determine the correct data domain for your question. Please try rephrasing it to be more specific about the topic (e.g., students, faculty)."}
 
 
 def main():
