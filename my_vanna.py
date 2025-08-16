@@ -9,6 +9,7 @@ from vanna.base import VannaBase
 from vanna.google import GoogleGeminiChat
 from vanna.qdrant import Qdrant_VectorStore
 
+
 class MyVanna(Qdrant_VectorStore, GoogleGeminiChat):
     """
     Custom Vanna implementation using Google Gemini for generation and embeddings,
@@ -19,7 +20,7 @@ class MyVanna(Qdrant_VectorStore, GoogleGeminiChat):
         if config is None:
             config = {}
 
-        self.api_key = config.get('api_key')
+        self.api_key = config.get("api_key")
         if not self.api_key:
             raise ValueError("A Gemini API key must be provided in the config dictionary.")
         genai.configure(api_key=self.api_key)
@@ -34,8 +35,8 @@ class MyVanna(Qdrant_VectorStore, GoogleGeminiChat):
 
         client = config.get("client")
         if client is None:
-            q_url = config.get('qdrant_url', 'http://localhost:6333')
-            q_key = config.get('qdrant_api_key')
+            q_url = config.get("qdrant_url", "http://localhost:6333")
+            q_key = config.get("qdrant_api_key")
             client = QdrantClient(url=q_url, api_key=q_key)
 
         qdrant_store_config = {
@@ -58,7 +59,6 @@ class MyVanna(Qdrant_VectorStore, GoogleGeminiChat):
         print(f"Chat Model Initialized: {self.chat_model}")
         print(f"Embedding Model Initialized: {self.embedding_model}")
 
-
     def get_sql(self, question: str) -> Optional[str]:
         """
         Generates an SQL query for a given question without executing it.
@@ -78,9 +78,9 @@ class MyVanna(Qdrant_VectorStore, GoogleGeminiChat):
         docs_context = self.get_related_documentation(question)
         sql_context = self.get_similar_question_sql(question)
 
-        ddl_strings = [item['ddl'] for item in ddl_context]
-        doc_strings = [item['documentation'] for item in docs_context]
-        sql_strings = [item['sql'] for item in sql_context]
+        ddl_strings = [item["ddl"] for item in ddl_context]
+        doc_strings = [item["documentation"] for item in docs_context]
+        sql_strings = [item["sql"] for item in sql_context]
 
         logging.info("Step 2: Generating SQL with Gemini...")
         return self.generate_sql(
@@ -97,9 +97,7 @@ class MyVanna(Qdrant_VectorStore, GoogleGeminiChat):
                 return []
 
             result = genai.embed_content(
-                model=self.embedding_model,
-                content=text,
-                task_type="retrieval_document"
+                model=self.embedding_model, content=text, task_type="retrieval_document"
             )
             return result["embedding"]
         except Exception as e:
@@ -242,7 +240,10 @@ class MyVanna(Qdrant_VectorStore, GoogleGeminiChat):
                 row = {
                     "id": point.id,
                     "type": payload.get("type", ""),
-                    "question": "", "sql": "", "ddl": "", "documentation": ""
+                    "question": "",
+                    "sql": "",
+                    "ddl": "",
+                    "documentation": "",
                 }
                 if payload.get("type") == "sql":
                     row["question"] = payload.get("question", "")

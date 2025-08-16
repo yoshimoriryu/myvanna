@@ -24,10 +24,7 @@ if __name__ == "__main__":
     print("--- Vanna CLI Initializing ---")
 
     # 1. Instantiate the Qdrant client using settings from config.py
-    qdrant_client = QdrantClient(
-        url=config.QDRANT_URL,
-        api_key=config.QDRANT_API_KEY
-    )
+    qdrant_client = QdrantClient(url=config.QDRANT_URL, api_key=config.QDRANT_API_KEY)
 
     # 2. Instantiate our custom Vanna class, injecting the client
     vn = MyVanna(config={"client": qdrant_client})
@@ -44,7 +41,9 @@ if __name__ == "__main__":
     print("\n--- Initial Checks ---")
     try:
         training_data = vn.get_training_data()
-        print(f"Training data available: {len(training_data) if not training_data.empty else 0} entries")
+        print(
+            f"Training data available: {len(training_data) if not training_data.empty else 0} entries"
+        )
     except Exception as e:
         print(f"Failed to get training data: {e}")
 
@@ -62,7 +61,7 @@ if __name__ == "__main__":
 
         try:
             generated_sql = vn.get_sql(question)
-            
+
             if generated_sql:
                 print("\n--- Generated SQL (not executed) ---")
                 print(generated_sql)

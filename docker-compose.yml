@@ -3,7 +3,7 @@ version: '3.8'
 services:
   postgres:
     image: postgres:17
-    container_name: myvanna-postgres-test
+    container_name: myvanna-postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -11,21 +11,20 @@ services:
     ports:
       - "${POSTGRES_PORT}:5432"
     volumes:
-      - postgres_data_test:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     # restart: unless-stopped
 
   qdrant:
     image: qdrant/qdrant
-    container_name: myvanna-qdrant-test
+    container_name: myvanna-qdrant
     ports:
       - "6333:6333"
-    # no need for key since its just a temporary test container
-    # environment:
-    #   QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY}
+    environment:
+      QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY}
     volumes:
-      - qdrant_data_test:/qdrant/storage
+      - qdrant_data:/qdrant/storage
     # restart: unless-stopped
 
 volumes:
-  postgres_data_test:
-  qdrant_data_test:
+  postgres_data:
+  qdrant_data:

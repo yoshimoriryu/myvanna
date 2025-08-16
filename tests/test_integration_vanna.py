@@ -14,7 +14,7 @@ def vanna_test_instance():
     test_collection_name = f"test_collection_{os.urandom(4).hex()}"
     print(f"\n--- Setting up test instance with collection: {test_collection_name} ---")
 
-    qdrant_client = QdrantClient(url=config.QDRANT_URL, api_key=config.QDRANT_API_KEY)
+    qdrant_client = QdrantClient(url=config.QDRANT_URL)
 
     # The MyVanna class now requires a full configuration dictionary.
     # We build it here using values from the config module.
@@ -126,7 +126,9 @@ def test_get_sql_method(vanna_test_instance):
     print("\nTesting get_sql method...")
 
     # First, add some context so the model has something to work with.
-    ddl_id = vanna_test_instance.add_ddl("CREATE TABLE customers (id INT, name VARCHAR(255), email VARCHAR(255))")
+    ddl_id = vanna_test_instance.add_ddl(
+        "CREATE TABLE customers (id INT, name VARCHAR(255), email VARCHAR(255))"
+    )
     assert ddl_id, "Failed to add DDL for get_sql test"
 
     question = "Show me the names of all customers"
@@ -139,5 +141,3 @@ def test_get_sql_method(vanna_test_instance):
     assert isinstance(generated_sql, str), "get_sql should return a string"
     assert "customers" in generated_sql.lower(), "Generated SQL should reference the correct table"
     assert "name" in generated_sql.lower(), "Generated SQL should reference the correct column"
-
-
