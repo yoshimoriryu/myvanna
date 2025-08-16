@@ -109,11 +109,7 @@ Use the generic `training.py` script to train a Vanna instance. You must specify
 
 **Example for the "students" domain:**
 ```bash
-poetry run python training.py \
-    --collection-name "vanna_students" \
-    --ddl-file "training_data/students/ddl.sql" \
-    --docs-file "training_data/students/docs.txt" \
-    --sql-file "training_data/students/sql.json"
+./scripts/run_training.sh <sub_folder on /training_data; ex: students>
 ```
 Run this command for each domain you want to train, changing the `--collection-name` and file paths accordingly.
 

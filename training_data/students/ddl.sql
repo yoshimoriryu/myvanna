@@ -58,3 +58,9 @@ CREATE VIEW vanna.v_prestasi_mawa AS
     penyelenggara_krp_khp AS character varying(255)
    FROM prestasi_mawa;
 -- View of student achievements
+-- nim_mhs means student ID
+-- pembimbing_nama means supervisor
+-- Column: tahun_krp_khp (year of achievement)
+-- Column: waktu_krp_khp (date of achievement)
+-- Column: penyelenggara_krp_khp (organizer)
+-- Column: nm_semester (semester)

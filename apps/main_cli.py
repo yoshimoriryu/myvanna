@@ -4,8 +4,8 @@ from typing import Dict, Optional
 
 from qdrant_client import QdrantClient
 
-import config
-from my_vanna import MyVanna
+from vanna_engine import config
+from vanna_engine.my_vanna import MyVanna
 
 # (logging configuration remains the same)
 log_levels = {
@@ -32,7 +32,7 @@ def initialize_vanna_instances() -> Dict[str, MyVanna]:
     Returns:
         A dictionary mapping domain names to their configured MyVanna instances.
     """
-    print("--- Discovering trained Vanna domains from Qdrant ---")
+    logging.info("--- Discovering trained Vanna domains from Qdrant ---")
     instances = {}
 
     try:
@@ -51,12 +51,18 @@ def initialize_vanna_instances() -> Dict[str, MyVanna]:
             # Extract the domain name from the collection name (e.g., 'vanna_students' -> 'students')
             domain = collection_name.replace("vanna_", "", 1)
 
-            print(
+            logging.info(
                 f"Initializing instance for domain: '{domain}' (collection: '{collection_name}')..."
             )
 
             # Create a specific config for this domain's instance
             vanna_config = config.VANNA_CONFIG_DICT.copy()
+            # ADD YOUR CUSTOM PROMPT HERE
+            # vanna_config["initial_prompt"] = (
+            #     "You are a PostgreSQL expert specializing in university student data. "
+            #     "Always refer to tables using their full schema name (e.g., `vanna.v_mahasiswa`). "
+            #     "Your response must be a single, executable SQL query and nothing else."
+            # )
             # IMPORTANT: We pass the *same* client to all instances for efficiency
             vanna_config["client"] = qdrant_client
             vanna_config["collection_name"] = collection_name
@@ -72,8 +78,8 @@ def initialize_vanna_instances() -> Dict[str, MyVanna]:
             instances[domain] = vn_instance
 
     except Exception as e:
-        print(f"\nFATAL ERROR: Could not connect to Qdrant to discover domains: {e}")
-        print("Please ensure Qdrant is running and accessible.")
+        logging.error(f"\nFATAL ERROR: Could not connect to Qdrant to discover domains: {e}")
+        logging.error("Please ensure Qdrant is running and accessible.")
         # Return empty dict so the program can exit gracefully
         return {}
 

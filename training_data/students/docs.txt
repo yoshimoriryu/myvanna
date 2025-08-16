@@ -9,6 +9,7 @@ Indonesian University Terms:
 - Jenjang = Education Level (D3: Diploma, S1: Bachelor, S2: Master, S3: Doctorate)
 - Agama = Religion
 - Penghasilan Ortu = Parent's Income
+- Asing = Foreign; Foreign students are students of a nationality other than Indonesian
 
 University Business Rules:
 - Students can have statuses such as 'Aktif' (Active), 'Cuti' (Leave), 'Lulus' (Graduated), etc.

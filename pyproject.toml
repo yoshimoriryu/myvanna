@@ -4,6 +4,7 @@ version = "0.1.0"
 description = ""
 authors = ["yoshimoriryu <hamzah.chairil98@gmail.com>"]
 readme = "README.md"
+packages = [{include = "vanna_engine", from = "src"}]
 
 [tool.poetry.dependencies]
 python = "^3.10"
