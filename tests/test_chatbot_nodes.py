@@ -12,6 +12,7 @@ from apps.multi_agent_chatbot import (
     # We will test the other nodes in a similar fashion
 )
 
+
 # A sample initial state that we can reuse for multiple tests
 @pytest.fixture
 def initial_state():
@@ -25,6 +26,7 @@ def initial_state():
         error_message=None,
     )
 
+
 def test_intent_router_node_routes_to_sql(mocker, initial_state):
     """
     Tests that the intent_router correctly identifies a SQL-related question.
@@ -37,7 +39,7 @@ def test_intent_router_node_routes_to_sql(mocker, initial_state):
     mock_response.text = "SQL_AGENT"
     mock_model.generate_content.return_value = mock_response
     # This is the core of mocking: patch the real object with our fake one
-    mocker.patch('apps.multi_agent_chatbot.genai.GenerativeModel', return_value=mock_model)
+    mocker.patch("apps.multi_agent_chatbot.genai.GenerativeModel", return_value=mock_model)
 
     # Run the node with our initial state
     result = intent_router_node(initial_state)
@@ -48,19 +50,20 @@ def test_intent_router_node_routes_to_sql(mocker, initial_state):
     mock_model.generate_content.assert_called_once()
     print("Intent router SQL path test passed.")
 
+
 def test_domain_router_node_selects_domain(mocker, initial_state):
     """
     Tests that the domain_router correctly selects a domain from the available list.
     """
     print("\n--- Testing Node: domain_router ---")
     # Mock the global list of available domains
-    mocker.patch('apps.multi_agent_chatbot.AVAILABLE_DOMAINS', ['students', 'finance'])
-    
+    mocker.patch("apps.multi_agent_chatbot.AVAILABLE_DOMAINS", ["students", "finance"])
+
     mock_model = MagicMock()
     mock_response = MagicMock()
-    mock_response.text = "students" # Simulate the LLM choosing 'students'
+    mock_response.text = "students"  # Simulate the LLM choosing 'students'
     mock_model.generate_content.return_value = mock_response
-    mocker.patch('apps.multi_agent_chatbot.genai.GenerativeModel', return_value=mock_model)
+    mocker.patch("apps.multi_agent_chatbot.genai.GenerativeModel", return_value=mock_model)
 
     result = domain_router_node(initial_state)
 
@@ -78,10 +81,10 @@ def test_generate_sql_node_success(mocker, initial_state):
     mock_vanna = MagicMock()
     mock_vanna.get_sql.return_value = "SELECT COUNT(*) FROM students;"
     # Mock the global dictionary that holds the Vanna instances
-    mocker.patch('apps.multi_agent_chatbot.VANNA_INSTANCES', {"students": mock_vanna})
-    
+    mocker.patch("apps.multi_agent_chatbot.VANNA_INSTANCES", {"students": mock_vanna})
+
     # Set the domain in the state so the node knows which mock instance to use
-    initial_state['vanna_domain'] = 'students'
+    initial_state["vanna_domain"] = "students"
 
     result = generate_sql_node(initial_state)
 
@@ -89,21 +92,22 @@ def test_generate_sql_node_success(mocker, initial_state):
     mock_vanna.get_sql.assert_called_with("How many students are there?")
     print("Generate SQL success path test passed.")
 
+
 def test_execute_sql_node_user_approves(mocker):
     """
     Tests the execution node when the user approves and the API call is successful.
     """
     print("\n--- Testing Node: execute_sql (User Approval path) ---")
     # Mock the user input to simulate them typing 'y' and pressing Enter
-    mocker.patch('builtins.input', return_value='y')
-    
+    mocker.patch("builtins.input", return_value="y")
+
     # Mock the requests.post call
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = [{"count": 100}]
-    mock_response.raise_for_status.return_value = None # Do nothing when this is called
-    mocker.patch('requests.post', return_value=mock_response)
-    
+    mock_response.raise_for_status.return_value = None  # Do nothing when this is called
+    mocker.patch("requests.post", return_value=mock_response)
+
     # The state needs a SQL query to work with
     state = GraphState(sql_query="SELECT COUNT(*) FROM students;")
 
@@ -114,17 +118,18 @@ def test_execute_sql_node_user_approves(mocker):
     assert "100" in result["query_result"]
     print("Execute SQL user approval path test passed.")
 
+
 def test_execute_sql_node_user_denies(mocker):
     """
     Tests the execution node when the user cancels the operation.
     """
     print("\n--- Testing Node: execute_sql (User Denial path) ---")
     # Mock the user input to simulate them typing 'n'
-    mocker.patch('builtins.input', return_value='n')
-    
+    mocker.patch("builtins.input", return_value="n")
+
     # Mock requests.post just in case, but it should NOT be called
-    mock_post = mocker.patch('requests.post')
-    
+    mock_post = mocker.patch("requests.post")
+
     state = GraphState(sql_query="SELECT 1;")
     result = execute_sql_node(state)
 

@@ -233,12 +233,12 @@ class MyVanna(Qdrant_VectorStore, GoogleGeminiChat):
         """
         # Create a SHA256 hash of the content.
         sha256_hash = hashlib.sha256(text_to_embed.encode("utf-8")).hexdigest()
-        
+
         # Take the first 32 characters of the hash (which is 128 bits, the same as a UUID)
         # and format it into the standard 8-4-4-4-12 UUID format. This is required
         # by Qdrant for string-based IDs.
         hash_as_uuid = f"{sha256_hash[0:8]}-{sha256_hash[8:12]}-{sha256_hash[12:16]}-{sha256_hash[16:20]}-{sha256_hash[20:32]}"
-        
+
         return hash_as_uuid
 
     def _add_training_data(self, text_to_embed: str, payload: dict, entry_id: str, **kwargs) -> str:

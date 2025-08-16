@@ -8,7 +8,7 @@ This project provides a production-ready, multi-agent implementation of Vanna AI
 -   **Data Source**: PostgreSQL
 -   **Environment Management**: Docker Compose
 
-The system is organized into a reusable core engine, a secure execution API, a multi-agent chatbot application, an idempotent data synchronizer, and a full integration test suite.
+The system is organized into a reusable core engine, a secure execution API, a multi-agent chatbot application, an idempotent data synchronizer, and a full, multi-layered test suite.
 
 <br>
 
@@ -35,13 +35,16 @@ The project follows a standard `src` layout to cleanly separate the core library
 │       └── sql.json
 ├── tests/
 │   ├── test_integration_vanna.py # Tests for the core vanna_engine
-│   └── test_secure_api.py        # Tests for the secure execution API
+│   ├── test_secure_api.py        # Integration tests for the secure API
+│   └── test_chatbot_nodes.py     # Unit tests for the agent nodes using mocks
 ├── scripts/
 │   ├── run_tests.sh              # Automated script to manage and run the test suite
 │   └── run_training.sh           # Convenience script to run the data synchronizer
-├── domain_metadata.json          # **NEW**: Configuration for the Domain Router
-├── docker-compose.yml            # Defines Postgres and Qdrant services
-├── .env.example
+├── domain_metadata.json          # Configuration for the Domain Router
+├── docker-compose.yml            # Main Docker Compose for development
+├── docker-compose-tests.yml      # Isolated Docker Compose for testing
+├── .env.example                  # Example environment variables
+├── .env.test                     # Overrides for the isolated test environment
 ├── pyproject.toml
 └── README.md
 ```
@@ -50,12 +53,11 @@ The project follows a standard `src` layout to cleanly separate the core library
 
 ## ⚙️ Features
 
--   **Multi-Agent Architecture**: Uses LangGraph to create a robust agentic system. A top-level **Routing Agent** analyzes user intent and dispatches tasks to specialized agents.
--   **Metadata-Driven Domain Routing**: The AI uses a configurable `domain_metadata.json` file with rich descriptions to accurately determine the correct data domain (e.g., `students`, `finance`) for a user's question.
+-   **Multi-Agent Architecture**: Uses LangGraph to create a robust agentic system with intent and domain routing.
+-   **Metadata-Driven Domain Routing**: Uses a configurable `domain_metadata.json` file with rich descriptions to accurately determine the correct data domain for a user's question.
 -   **Secure, Air-Gapped Execution**: The Vanna/LLM agent **never** has direct access to the database. It generates SQL, which is then sent to a separate, secure FastAPI for execution.
--   **Idempotent Data Synchronization**: The `synchronizer.py` tool surgically syncs local training files with the Qdrant vector store.
--   **Clean & Decoupled**: Follows professional software design principles (`src` layout, externalized configuration).
--   **Automated & Isolated Testing**: A `run_tests.sh` script that spins up a dedicated, isolated test environment in Docker.
+-   **Production-Ready Configuration**: Dynamically constructs service URLs from their constituent parts (scheme, host, port), supporting both local HTTP and production HTTPS deployments.
+-   **Automated & Isolated Testing**: A `run_tests.sh` script that spins up a dedicated, isolated test environment on separate ports using a `.env.test` file, preventing collisions with the development environment.
 
 <br>
 
@@ -76,7 +78,26 @@ poetry install
 ### 3️⃣ Configure Environment
 
 **A. Create `.env` file:**
-Create a `.env` file from the `.env.example` and fill in your API keys.
+Create a `.env` file from the `.env.example`. This file configures the main development environment.
+
+```dotenv .env.example
+# .env
+# --- Qdrant ---
+# The scheme, host, and port are combined to create the full QDRANT_URL
+# Use 'http' for local development and 'https' for production with a reverse proxy.
+QDRANT_SCHEME="http"
+QDRANT_HOST="localhost"
+QDRANT_PORT="6333"
+QDRANT_API_KEY="your-super-secret-and-random-key-here"
+
+# --- Google Gemini ---
+GEMINI_API_KEY="your-gemini-api-key"
+
+# --- PostgreSQL Connection (for Docker Compose and Secure API) ---
+POSTGRES_HOST="localhost"
+POSTGRES_PORT="5432"
+# ... etc.
+```
 
 **B. Create `domain_metadata.json` file:**
 This file is **required** and configures the Domain Router. Create a `domain_metadata.json` file in the project root. For each domain you want to activate, add an entry with a concise, descriptive summary.
@@ -86,6 +107,9 @@ This file is **required** and configures the Domain Router. Create a `domain_met
     "students": "Contains data about student enrollment, courses, demographics, and academic status."
 }
 ```
+
+**C. Review `.env.test`:**
+This file (`.env.test`) is already configured to run the test environment on different ports (`5433`, `6334`) to avoid conflicts. You typically do not need to edit this file.
 
 ### 4️⃣ Train a Domain
 
@@ -98,7 +122,7 @@ For each domain defined in your metadata file, you must train it using the `run_
 
 ### 5️⃣ Start Services (3 Terminals Required)
 
-The full application runs as three separate processes. You will need to open three terminals in the project's root directory.
+The full application runs as three separate processes.
 
 **Terminal 1: Start Infrastructure**
 ```bash
@@ -114,11 +138,10 @@ poetry run uvicorn secure_api.main:app --reload
 ```bash
 poetry run python apps/multi_agent_chatbot.py
 ```
-The chatbot will start and only load the domains that are present in both `domain_metadata.json` and Qdrant.
 
 ### 6️⃣ Run Integration Tests (Recommended)
 
-Verify that the entire setup is working correctly with the automated test script.
+Verify that the entire setup is working correctly with the automated test script. It will automatically use the `.env.test` file and `docker-compose-tests.yml` to create a safe, isolated environment.
 ```bash
 ./scripts/run_tests.sh
 ```
@@ -129,12 +152,10 @@ Verify that the entire setup is working correctly with the automated test script
 
 The system operates as a sophisticated, multi-agent workflow orchestrated by LangGraph.
 
-1.  **Intent Routing**: When a user sends a message, it first goes to an **Intent Router** to decide if the query is for the `GENERAL_CHAT` agent or the `SQL_AGENT`.
+1.  **Intent & Domain Routing**: A two-stage routing process first determines if a question is for the database, and if so, uses the `domain_metadata.json` to select the correct domain.
 
-2.  **Domain Routing**: If the intent is `SQL_AGENT`, the query is passed to a **Domain Router**. This agent reads the `domain_metadata.json` file to create a rich prompt. It uses this context to analyze the user's question and decide which data domain is the most relevant.
+2.  **SQL Generation**: The query is passed to the appropriate `MyVanna` instance, which uses RAG to generate a SQL query.
 
-3.  **SQL Generation**: The query is then passed to the appropriate `MyVanna` instance for that domain. The `vanna_engine` uses its RAG capabilities to generate a SQL query.
+3.  **Secure Execution**: The SQL is passed to an **Execution Node** which asks the user for approval, then calls the **Secure Execution API**.
 
-4.  **Secure Execution**: The generated SQL is passed to an **Execution Node** which first asks the user for approval, then calls the **Secure Execution API**.
-
-5.  **Data Retrieval & Explanation**: The Secure API (the only component with DB credentials) executes the query and returns the results as JSON. This is passed to an **Explanation Node** which synthesizes a final, natural-language answer.
+4.  **Data Retrieval & Explanation**: The Secure API executes the query and returns the results as JSON. This is passed to an **Explanation Node** which synthesizes a final, natural-language answer.

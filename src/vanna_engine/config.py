@@ -29,6 +29,9 @@ POSTGRES_DB = os.getenv("POSTGRES_DB", "chatbot")
 # --- Logging Configuration ---
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 
+# --- Secure Execution API ---
+SECURE_API_URL = os.getenv("SECURE_API_URL", "http://127.0.0.1:8000")
+
 # --- Pre-flight Checks ---
 if not GEMINI_API_KEY:
     raise ValueError("GEMINI_API_KEY is not set in the environment variables.")

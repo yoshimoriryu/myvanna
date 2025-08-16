@@ -27,7 +27,7 @@ def vanna_test_instance():
         "embedding_model": config.VANNA_EMBED_MODEL,
         "temperature": config.VANNA_TEMPERATURE,
         "max_tokens": config.VANNA_MAX_TOKENS,
-        "qdrant_url": config.QDRANT_URL
+        "qdrant_url": config.QDRANT_URL,
     }
 
     vn_test = MyVanna(config=vanna_config)

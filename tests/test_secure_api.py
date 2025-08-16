@@ -8,6 +8,7 @@ from secure_api.main import app
 # The TestClient is a special object from FastAPI for testing
 client = TestClient(app)
 
+
 def test_execute_sql_success():
     """
     Tests the "happy path": executing a valid, safe SQL query.
@@ -23,6 +24,7 @@ def test_execute_sql_success():
     assert response.json() == [{"id": 1, "name": "test"}]
     print("Success path test passed.")
 
+
 def test_execute_sql_security_rejection():
     """
     Tests the CRITICAL security path: ensuring the API rejects dangerous keywords.
@@ -37,6 +39,7 @@ def test_execute_sql_security_rejection():
     # Assert the error message is correct
     assert "forbidden" in response.json()["detail"].lower()
     print("Security rejection test passed.")
+
 
 def test_execute_sql_invalid_syntax():
     """
