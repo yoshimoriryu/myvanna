@@ -1,3 +1,4 @@
 {
-    "students": "Contains data about student enrollment, courses, demographics, and academic status."
+    "students": "Contains data about student enrollment, courses, demographics, and academic status.",
+    "faculty": "Contains data about professors, their departments, publications, and contact information."
 }

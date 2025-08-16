@@ -1,0 +1,30 @@
+[
+    {
+        "question": "Who are the professors in the Computer Science department?",
+        "sql": "SELECT name, title FROM faculty WHERE department = 'Computer Science';"
+    },
+    {
+        "question": "Show me the email address for a professor named Dr. Ada Lovelace",
+        "sql": "SELECT email FROM faculty WHERE name = 'Dr. Ada Lovelace';"
+    },
+    {
+        "question": "How many faculty members were hired after January 1, 2020?",
+        "sql": "SELECT COUNT(*) FROM faculty WHERE hire_date > '2020-01-01';"
+    },
+    {
+        "question": "List all publications from the year 2021",
+        "sql": "SELECT title, journal_name FROM publications WHERE publication_year = 2021;"
+    },
+    {
+        "question": "Which papers are the most cited?",
+        "sql": "SELECT title, citation_count FROM publications ORDER BY citation_count DESC LIMIT 10;"
+    },
+    {
+        "question": "Show me all papers published by the professor with ID 3",
+        "sql": "SELECT p.title, p.publication_year FROM publications p JOIN faculty f ON p.author_id = f.faculty_id WHERE f.faculty_id = 3;"
+    },
+    {
+        "question": "How many publications does each department have?",
+        "sql": "SELECT f.department, COUNT(p.publication_id) AS number_of_publications FROM faculty f JOIN publications p ON f.faculty_id = p.author_id GROUP BY f.department ORDER BY number_of_publications DESC;"
+    }
+]

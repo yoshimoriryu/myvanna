@@ -18,7 +18,7 @@ services:
     image: qdrant/qdrant
     container_name: myvanna-qdrant-test
     ports:
-      - "6333:6333"
+      - "${QDRANT_PORT}:6333"
     # no need for key since its just a temporary test container
     # environment:
     #   QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY}

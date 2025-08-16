@@ -13,9 +13,11 @@ VANNA_TEMPERATURE = float(os.getenv("VANNA_TEMPERATURE", 0.1))
 VANNA_MAX_TOKENS = int(os.getenv("VANNA_MAX_TOKENS", 2048))
 
 # --- Qdrant Configuration ---
-QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
+QDRANT_SCHEME = os.getenv("QDRANT_SCHEME", "http")
+QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
+QDRANT_PORT = os.getenv("QDRANT_PORT", "6333")
+QDRANT_URL = f"{QDRANT_SCHEME}://{QDRANT_HOST}:{QDRANT_PORT}"
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
-VANNA_COLLECTION_NAME = os.getenv("VANNA_COLLECTION_NAME", "myvanna_sql_collection")
 
 # --- PostgreSQL Connection ---
 POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
@@ -42,6 +44,5 @@ VANNA_CONFIG_DICT = {
     "embedding_model": VANNA_EMBED_MODEL,
     "temperature": VANNA_TEMPERATURE,
     "max_tokens": VANNA_MAX_TOKENS,
-    "collection_name": VANNA_COLLECTION_NAME,
     "qdrant_url": QDRANT_URL,
 }
