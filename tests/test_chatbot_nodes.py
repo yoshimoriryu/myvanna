@@ -3,13 +3,12 @@ from unittest.mock import MagicMock
 from langchain_core.messages import HumanMessage
 
 
-from apps.multi_agent_chatbot import (
+from src.chatbot.agent import (
     GraphState,
     intent_router_node,
     domain_router_node,
     generate_sql_node,
     execute_sql_node,
-    # We will test the other nodes in a similar fashion
 )
 
 
@@ -39,7 +38,7 @@ def test_intent_router_node_routes_to_sql(mocker, initial_state):
     mock_response.text = "SQL_AGENT"
     mock_model.generate_content.return_value = mock_response
     # This is the core of mocking: patch the real object with our fake one
-    mocker.patch("apps.multi_agent_chatbot.genai.GenerativeModel", return_value=mock_model)
+    mocker.patch("src.chatbot.agent.genai.GenerativeModel", return_value=mock_model)
 
     # Run the node with our initial state
     result = intent_router_node(initial_state)
@@ -57,13 +56,13 @@ def test_domain_router_node_selects_domain(mocker, initial_state):
     """
     print("\n--- Testing Node: domain_router ---")
     # Mock the global list of available domains
-    mocker.patch("apps.multi_agent_chatbot.AVAILABLE_DOMAINS", ["students", "finance"])
+    mocker.patch("src.chatbot.agent.AVAILABLE_DOMAINS", ["students", "finance"])
 
     mock_model = MagicMock()
     mock_response = MagicMock()
     mock_response.text = "students"  # Simulate the LLM choosing 'students'
     mock_model.generate_content.return_value = mock_response
-    mocker.patch("apps.multi_agent_chatbot.genai.GenerativeModel", return_value=mock_model)
+    mocker.patch("src.chatbot.agent.genai.GenerativeModel", return_value=mock_model)
 
     result = domain_router_node(initial_state)
 
@@ -81,7 +80,7 @@ def test_generate_sql_node_success(mocker, initial_state):
     mock_vanna = MagicMock()
     mock_vanna.get_sql.return_value = "SELECT COUNT(*) FROM students;"
     # Mock the global dictionary that holds the Vanna instances
-    mocker.patch("apps.multi_agent_chatbot.VANNA_INSTANCES", {"students": mock_vanna})
+    mocker.patch("src.chatbot.agent.VANNA_INSTANCES", {"students": mock_vanna})
 
     # Set the domain in the state so the node knows which mock instance to use
     initial_state["vanna_domain"] = "students"

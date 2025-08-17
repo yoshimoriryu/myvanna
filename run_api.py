@@ -8,9 +8,11 @@ import google.generativeai as genai
 from qdrant_client import QdrantClient
 from sqlalchemy import create_engine, text
 import json
+from langgraph.graph import StateGraph, END
 
-from vanna_engine import config
-from vanna_engine.my_vanna import MyVanna
+# --- Updated Imports ---
+from src.vanna_engine import config
+from src.vanna_engine.my_vanna import MyVanna
 
 
 class GraphState(TypedDict):
@@ -74,14 +76,12 @@ def initialize_llm_and_vanna():
     try:
         qdrant_client = QdrantClient(url=config.QDRANT_URL, api_key=config.QDRANT_API_KEY)
         collections_response = qdrant_client.get_collections()
-        all_collections = collections_response.collections
         all_collections = {
             c.name.replace("vanna_", "", 1): c
             for c in collections_response.collections
             if c.name.startswith("vanna_")
         }
 
-        # --- MODIFICATION: We now iterate through our metadata ---
         for domain_name, description in domain_metadata.items():
             if domain_name not in all_collections:
                 print(
@@ -98,7 +98,6 @@ def initialize_llm_and_vanna():
             vn_instance = MyVanna(config=vanna_config)
             VANNA_INSTANCES[domain_name] = vn_instance
 
-        # The list of available domains is now the keys from our metadata
         AVAILABLE_DOMAINS = list(VANNA_INSTANCES.keys())
 
         if not AVAILABLE_DOMAINS:
@@ -123,14 +122,7 @@ def intent_router_node(state: GraphState) -> dict:
     messages = state["messages"]
     last_message = messages[-1].content
 
-    # Prompt for the router
-    prompt = f"""You are an expert at routing user requests to the correct specialist agent. 
-    Given the conversation history, you must decide which of the following tools to use next.
-    Your answer must be one of: `SQL_AGENT`, `GENERAL_CHAT`.
-
-    TOOLS:
-    - `SQL_AGENT`: Use this when the user is asking a question that requires querying the database for specific data, numbers, or records.
-    - `GENERAL_CHAT`: Use this for greetings, conversational filler, or questions about your capabilities that don't involve data.
+    prompt = f"""You are an expert at routing user requests. Decide if the user's request requires the `SQL_AGENT` or is `GENERAL_CHAT`.
 
     CONVERSATION HISTORY:
     {messages}
@@ -140,223 +132,15 @@ def intent_router_node(state: GraphState) -> dict:
 
     YOUR DECISION:"""
 
-    router_agent_model = os.getenv("ROUTER_AGENT_MODEL", "gemini-2.5-pro")
-    print(f"Using router model: {router_agent_model}")
+    router_agent_model = os.getenv("ROUTER_AGENT_MODEL", "gemini-1.5-pro")
     model = genai.GenerativeModel(router_agent_model)
     response = model.generate_content(prompt)
-
     decision = response.text.strip()
     print(f"Router decision: {decision}")
-
     if "SQL_AGENT" in decision:
         return {"next_tool": "SQL_AGENT"}
     else:
         return {"next_tool": "GENERAL_CHAT"}
-
-
-def generate_sql_node(state: GraphState) -> dict:
-    """
-    Uses the appropriate Vanna instance to generate a SQL query.
-    """
-    print("--- Node: Generate SQL ---")
-    question = state["messages"][-1].content
-    domain = state["vanna_domain"]
-
-    active_vanna = VANNA_INSTANCES.get(domain)
-    if not active_vanna:
-        return {"error_message": f"Error: Domain '{domain}' not found."}
-
-    try:
-        sql = active_vanna.get_sql(question)
-        if not sql:
-            return {"error_message": "Vanna could not generate SQL for this question."}
-
-        print(f"Generated SQL: {sql}")
-        return {"sql_query": sql}
-    except Exception as e:
-        return {"error_message": f"An error occurred during SQL generation: {e}"}
-
-
-def execute_sql_node(state: GraphState) -> dict:
-    """
-    Executes the SQL query by calling the secure, air-gapped API.
-    This node still includes the critical user approval step.
-    """
-    print("--- Node: Execute SQL (via Secure API) ---")
-    sql = state["sql_query"]
-
-    # --- CRITICAL SAFETY STEP: User Approval ---
-    print("\n--- SQL Query for Review ---")
-    print(sql)
-    print("----------------------------")
-    try:
-        choice = input("Do you want to send this query for execution? (y/n): ").lower()
-        if choice != "y":
-            return {"explanation": "Query execution cancelled by user."}
-    except (KeyboardInterrupt, EOFError):
-        return {"explanation": "Query execution cancelled by user."}
-
-    print("Sending query to secure execution API...")
-    try:
-        # Call the API
-        api_url = config.SECURE_API_URL
-        response = requests.post(f"{api_url}/execute-sql", json={"sql": sql})
-
-        # Check for HTTP errors
-        response.raise_for_status()
-
-        # Convert the JSON response back to a DataFrame, then to Markdown for the LLM
-        result_json = response.json()
-
-        df = pd.DataFrame(result_json)
-        result_str = df.to_markdown(index=False)
-
-        print("Query successful. Result preview:")
-        print(result_str[:1000])
-
-        return {"query_result": result_str}
-
-    except requests.exceptions.HTTPError as http_err:
-        # Extract the specific error message from the API's response
-        error_detail = http_err.response.json().get("detail", str(http_err))
-        error_msg = f"API Error: {error_detail}"
-        print(error_msg)
-        return {"error_message": error_msg}
-    except Exception as e:
-        error_msg = f"An unexpected error occurred: {e}"
-        print(error_msg)
-        return {"error_message": error_msg}
-
-
-def explain_results_node(state: GraphState) -> dict:
-    """
-    Uses the LLM to explain the query results in natural language.
-    """
-    print("--- Node: Explain Results ---")
-
-    question = state["messages"][-1].content
-    query_result = state["query_result"]
-
-    prompt = f"""You are a helpful data analyst. The user asked the question: '{question}'
-    The following data was retrieved from the database:
-    ---
-    {query_result}
-    ---
-    Please provide a brief, natural language summary of this data that directly answers the user's question.
-
-    IMPORTANT: If the data section above is empty or contains only table headers, it signifies that the query returned no results. In this case, do not simply state 'no results were found.' Instead, provide a helpful interpretation based on the user's question. For example, if the user asked "Which professors were hired in 2050?", a good response would be "Based on the available data, no professors were hired in the year 2050."
-    """
-
-    explain_agent_model = os.getenv("EXPLAIN_AGENT_MODEL", "gemini-2.5-flash")
-    model = genai.GenerativeModel(explain_agent_model)
-    response = model.generate_content(prompt)
-
-    explanation = response.text.strip()
-    print(f"Generated Explanation: {explanation}")
-
-    return {"explanation": explanation}
-
-
-def general_chat_node(state: GraphState) -> dict:
-    """
-    Handles general conversation that doesn't require database access.
-    """
-    print("--- Node: General Chat ---")
-    question = state["messages"][-1].content
-
-    prompt = f"You are a friendly AI assistant. A user is chatting with you. Here is their message: '{question}'. Respond conversationally."
-
-    general_chat_model = os.getenv("GENERAL_CHAT_MODEL", "gemini-2.5-flash")
-    model = genai.GenerativeModel(general_chat_model)
-    response = model.generate_content(prompt)
-
-    explanation = response.text.strip()
-    print(f"Generated Chat Response: {explanation}")
-
-    return {"explanation": explanation}
-
-
-# --- Graph Wiring ---
-from langgraph.graph import StateGraph, END
-
-
-def build_graph():
-    """
-    Builds the LangGraph state machine.
-    """
-    print("--- Wiring the agent graph ---")
-    workflow = StateGraph(GraphState)
-
-    # Add all our functions as nodes in the graph
-    workflow.add_node("intent_router", intent_router_node)
-    workflow.add_node("domain_router", domain_router_node)
-    workflow.add_node("generate_sql", generate_sql_node)
-    workflow.add_node("execute_sql", execute_sql_node)
-    workflow.add_node("explain_results", explain_results_node)
-    workflow.add_node("general_chat", general_chat_node)
-
-    # --- Define the Edges (The Flow) ---
-
-    # The entry point is the intent_router
-    workflow.set_entry_point("intent_router")
-
-    # This is the conditional routing logic. Based on the output of the router_node,
-    # the graph will decide which specialist agent to call.
-    workflow.add_conditional_edges(
-        "intent_router",
-        lambda state: state["next_tool"],
-        {
-            "SQL_AGENT": "domain_router",
-            "GENERAL_CHAT": "general_chat",
-        },
-    )
-
-    # The SQL_AGENT is a multi-step sub-workflow. We define the linear
-    # flow for this agent.
-    workflow.add_edge("domain_router", "generate_sql")
-    workflow.add_edge("generate_sql", "execute_sql")
-    workflow.add_conditional_edges(
-        "execute_sql",
-        lambda state: "error" if state.get("error_message") else "success",
-        {
-            "success": "explain_results",
-            "error": END,
-        },
-    )
-
-    # After the specialist agents have done their work, the conversation turn is over.
-    # The graph will finish and return the final state.
-    workflow.add_edge("explain_results", END)
-    workflow.add_edge("general_chat", END)
-
-    # Compile the workflow into a runnable application
-    agent_app = workflow.compile()
-    print("--- Agent graph compiled successfully ---")
-    return agent_app
-
-
-def select_domain(domains: list) -> str:
-    """
-    Displays a numbered menu for the user to select a domain.
-    """
-    print("\nPlease select a domain to query:")
-    for i, domain in enumerate(domains):
-        print(f"  {i + 1}: {domain}")
-
-    while True:
-        try:
-            choice = input("Enter your choice (number): ")
-            choice_num = int(choice)
-            if 1 <= choice_num <= len(domains):
-                return domains[choice_num - 1]
-            else:
-                print("Invalid number. Please try again.")
-        except ValueError:
-            print("Invalid input. Please enter a number.")
-        except (KeyboardInterrupt, EOFError):
-            print("\nExiting...")
-            return None
-
 
 def domain_router_node(state: GraphState) -> dict:
     """
@@ -364,8 +148,6 @@ def domain_router_node(state: GraphState) -> dict:
     """
     print("--- Node: Domain Router ---")
     question = state["messages"][-1].content
-
-    # Prompt for the domain router
     domain_metadata = load_domain_metadata()
     domain_options = "\n".join(
         [
@@ -374,10 +156,7 @@ def domain_router_node(state: GraphState) -> dict:
             if name in AVAILABLE_DOMAINS
         ]
     )
-
-    prompt = f"""You are an expert at classifying a user's question into a specific data domain.
-    Based on the user's question, you must decide which of the following domains is the most relevant.
-    Your answer must be ONLY ONE of the domain names from the list.
+    prompt = f"""You are an expert at classifying a user's question into a specific data domain. Your answer must be ONLY ONE of the domain names from the list.
 
     DOMAINS:
     {domain_options}
@@ -387,79 +166,135 @@ def domain_router_node(state: GraphState) -> dict:
 
     MOST RELEVANT DOMAIN:"""
 
-    domain_router_model = os.getenv("DOMAIN_ROUTER_MODEL", "gemini-2.5-pro")
+    domain_router_model = os.getenv("DOMAIN_ROUTER_MODEL", "gemini-1.5-pro")
     model = genai.GenerativeModel(domain_router_model)
     response = model.generate_content(prompt)
-
     chosen_domain = response.text.strip().replace("'", "").replace('"', "").replace("*", "")
-
     print(f"Domain Router decision: {chosen_domain}")
-
     if chosen_domain in AVAILABLE_DOMAINS:
         return {"vanna_domain": chosen_domain}
     else:
-        # Fallback if the LLM hallucinates a domain or provides a conversational answer
         print(f"WARNING: Router LLM returned an invalid domain. Fallback needed.")
         return {
-            "error_message": f"I can't determine the correct data domain for your question. Please try rephrasing it to be more specific about the topic (e.g., students, faculty)."
+            "error_message": f"I can't determine the correct data domain. Please be more specific about the topic (e.g., students, faculty)."
         }
 
-
-def main():
+def generate_sql_node(state: GraphState) -> dict:
     """
-    The main application loop for the chatbot.
+    Uses the appropriate Vanna instance to generate a SQL query.
     """
-    # Initialize everything once at the start
-    available_domains = initialize_llm_and_vanna()
-    if not available_domains:
-        print("Could not find any Vanna domains. Please run the trainer first. Exiting.")
-        return
+    print("--- Node: Generate SQL ---")
+    question = state["messages"][-1].content
+    domain = state["vanna_domain"]
+    active_vanna = VANNA_INSTANCES.get(domain)
+    if not active_vanna:
+        return {"error_message": f"Error: Domain '{domain}' not found."}
+    try:
+        sql = active_vanna.get_sql(question)
+        if not sql:
+            return {"error_message": "Vanna could not generate SQL for this question."}
+        print(f"Generated SQL: {sql}")
+        return {"sql_query": sql}
+    except Exception as e:
+        return {"error_message": f"An error occurred during SQL generation: {e}"}
 
-    app = build_graph()
+def execute_sql_node(state: GraphState) -> dict:
+    """
+    Executes the SQL query by calling the secure, air-gapped API.
+    This node still includes the critical user approval step.
+    """
+    print("--- Node: Execute SQL (via Secure API) ---")
+    sql = state["sql_query"]
+    print("\n--- SQL Query for Review ---\n", sql, "\n----------------------------")
+    try:
+        choice = input("Do you want to send this query for execution? (y/n): ").lower()
+        if choice != "y":
+            return {"explanation": "Query execution cancelled by user."}
+    except (KeyboardInterrupt, EOFError):
+        return {"explanation": "Query execution cancelled by user."}
+    print("Sending query to secure execution API...")
+    try:
+        api_url = config.SECURE_API_URL
+        response = requests.post(f"{api_url}/execute-sql", json={"sql": sql})
+        response.raise_for_status()
+        result_json = response.json()
+        result_str = pd.DataFrame(result_json).to_markdown(index=False)
+        print("Query successful. Result preview:\n", result_str[:1000])
+        return {"query_result": result_str}
+    except requests.exceptions.HTTPError as http_err:
+        error_detail = http_err.response.json().get("detail", str(http_err))
+        error_msg = f"API Error: {error_detail}"
+        print(error_msg)
+        return {"error_message": error_msg}
+    except Exception as e:
+        error_msg = f"An unexpected error occurred: {e}"
+        print(error_msg)
+        return {"error_message": error_msg}
 
-    print(f"\n--- Starting Chat ---")
-    print("I can answer questions about the following domains:", available_domains)
-    print("Type 'exit' or 'quit' to end the conversation.")
+def explain_results_node(state: GraphState) -> dict:
+    """
+    Uses the LLM to explain the query results in natural language.
+    """
+    print("--- Node: Explain Results ---")
+    question = state["messages"][-1].content
+    query_result = state["query_result"]
+    prompt = f"""You are a helpful data analyst. The user asked: '{question}'. The retrieved data is:
+    ---
+    {query_result}
+    ---
+    Please provide a brief, natural language summary of this data. If the data is empty, interpret it as "no results found" and state that clearly."""
+    explain_agent_model = os.getenv("EXPLAIN_AGENT_MODEL", "gemini-1.5-flash")
+    model = genai.GenerativeModel(explain_agent_model)
+    response = model.generate_content(prompt)
+    explanation = response.text.strip()
+    print(f"Generated Explanation: {explanation}")
+    return {"explanation": explanation}
 
-    # This will hold our full conversation history
-    messages = []
+def general_chat_node(state: GraphState) -> dict:
+    """
+    Handles general conversation that doesn't require database access.
+    """
+    print("--- Node: General Chat ---")
+    question = state["messages"][-1].content
+    prompt = f"You are a friendly AI assistant. A user is chatting with you. Here is their message: '{question}'. Respond conversationally."
+    general_chat_model = os.getenv("GENERAL_CHAT_MODEL", "gemini-1.5-flash")
+    model = genai.GenerativeModel(general_chat_model)
+    response = model.generate_content(prompt)
+    explanation = response.text.strip()
+    print(f"Generated Chat Response: {explanation}")
+    return {"explanation": explanation}
 
-    while True:
-        try:
-            user_input = input("\nYou: ")
-            if user_input.lower() in ["exit", "quit"]:
-                break
-
-            # Append the user's message to the history
-            messages.append(HumanMessage(content=user_input))
-
-            initial_state = {
-                "messages": messages,
-            }
-
-            # Invoke the LangGraph agent
-            final_state = app.invoke(initial_state)
-
-            # --- Display the result to the user ---
-            if final_state.get("error_message"):
-                print(f"\nAI (Error): {final_state['error_message']}")
-                # Remove the last message from history if it caused an error
-                messages.pop()
-            elif final_state.get("explanation"):
-                print(f"\nAI: {final_state['explanation']}")
-                # We don't add the AI's response to the message history here,
-                # as the router only needs the human questions to make decisions.
-                # You could add it if you wanted a more conversational AI.
-            else:
-                print("\nAI: I'm sorry, an unexpected issue occurred.")
-
-        except (KeyboardInterrupt, EOFError):
-            break
-
-    print("\n--- Conversation Ended ---")
-
-
-if __name__ == "__main__":
-    # Before running, make sure you have your secure API running in another terminal:
-    # poetry run uvicorn secure_api.main:app --reload
-    main()
+def build_graph():
+    """
+    Builds the LangGraph state machine.
+    """
+    print("--- Wiring the agent graph ---")
+    workflow = StateGraph(GraphState)
+    workflow.add_node("intent_router", intent_router_node)
+    workflow.add_node("domain_router", domain_router_node)
+    workflow.add_node("generate_sql", generate_sql_node)
+    workflow.add_node("execute_sql", execute_sql_node)
+    workflow.add_node("explain_results", explain_results_node)
+    workflow.add_node("general_chat", general_chat_node)
+    workflow.set_entry_point("intent_router")
+    workflow.add_conditional_edges(
+        "intent_router",
+        lambda state: state["next_tool"],
+        {"SQL_AGENT": "domain_router", "GENERAL_CHAT": "general_chat"},
+    )
+    workflow.add_conditional_edges(
+        "domain_router",
+        lambda state: "error" if state.get("error_message") else "continue",
+        {"continue": "generate_sql", "error": END},
+    )
+    workflow.add_edge("generate_sql", "execute_sql")
+    workflow.add_conditional_edges(
+        "execute_sql",
+        lambda state: "error" if state.get("error_message") else "success",
+        {"success": "explain_results", "error": END},
+    )
+    workflow.add_edge("explain_results", END)
+    workflow.add_edge("general_chat", END)
+    agent_app = workflow.compile()
+    print("--- Agent graph compiled successfully ---")
+    return agent_app

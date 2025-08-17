@@ -1,9 +1,14 @@
 version: '3.8'
 
 services:
-  postgres:
+  # --- PRIVATE DATA ENVIRONMENT (FOR LOCAL DEV & TESTING ONLY) ---
+  # In a real production environment, this database and the secure_api would
+  # be deployed in a separate, trusted network (e.g., a private VPC).
+  # It is included here to provide a complete, one-command setup for
+  # local development and integration testing.
+  private-data-db:
     image: postgres:17
-    container_name: myvanna-postgres
+    container_name: myvanna-private-data-db
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -11,7 +16,22 @@ services:
     ports:
       - "${POSTGRES_PORT}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - private_db_data:/var/lib/postgresql/data
+    # restart: unless-stopped
+
+  # --- CHATBOT APPLICATION ENVIRONMENT ---
+  # This database stores the application's state, such as conversation histories.
+  chatbot-state-db:
+    image: postgres:17
+    container_name: myvanna-chatbot-state-db
+    environment:
+      POSTGRES_USER: ${CHATBOT_DB_USER}
+      POSTGRES_PASSWORD: ${CHATBOT_DB_PASSWORD}
+      POSTGRES_DB: ${CHATBOT_DB_NAME}
+    ports:
+      - "${CHATBOT_DB_PORT}:5432"
+    volumes:
+      - chatbot_db_data:/var/lib/postgresql/data
     # restart: unless-stopped
 
   qdrant:
@@ -25,9 +45,9 @@ services:
       - qdrant_data:/qdrant/storage
     # restart: unless-stopped
 
-
 volumes:
-  postgres_data:
+  private_db_data:
+  chatbot_db_data:
   qdrant_data:
 
 networks:

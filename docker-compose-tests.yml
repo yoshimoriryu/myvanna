@@ -13,6 +13,8 @@ services:
     volumes:
       - postgres_data_test:/var/lib/postgresql/data
     # restart: unless-stopped
+    networks:
+      - test_network
 
   qdrant-test:
     image: qdrant/qdrant
@@ -25,6 +27,8 @@ services:
     volumes:
       - qdrant_data_test:/qdrant/storage
     # restart: unless-stopped
+    networks:
+      - test_network
 
 volumes:
   postgres_data_test:

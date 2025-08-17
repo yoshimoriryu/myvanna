@@ -1,5 +1,6 @@
 import os
 from dotenv import load_dotenv
+from urllib.parse import quote_plus
 
 load_dotenv()
 
@@ -31,6 +32,21 @@ LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 
 # --- Secure Execution API ---
 SECURE_API_URL = os.getenv("SECURE_API_URL", "http://127.0.0.1:8000")
+
+CHATBOT_DB_USER = os.getenv("CHATBOT_DB_USER", "chatbot_user")
+CHATBOT_DB_PASSWORD = os.getenv("CHATBOT_DB_PASSWORD", "chatbot_password")
+CHATBOT_DB_NAME = os.getenv("CHATBOT_DB_NAME", "chatbot_db")
+CHATBOT_DB_HOST = os.getenv("CHATBOT_DB_HOST", "chatbot-state-db")
+CHATBOT_DB_PORT = os.getenv("CHATBOT_DB_PORT", "5434")
+
+# URL-encode the password to handle special characters safely
+encoded_chatbot_db_password = quote_plus(CHATBOT_DB_PASSWORD)
+
+# Construct the SQLAlchemy database URL
+CHATBOT_STATE_DB_URL = (
+    f"postgresql+psycopg2://{CHATBOT_DB_USER}:{encoded_chatbot_db_password}@"
+    f"{CHATBOT_DB_HOST}:{CHATBOT_DB_PORT}/{CHATBOT_DB_NAME}"
+)
 
 # --- Pre-flight Checks ---
 if not GEMINI_API_KEY:

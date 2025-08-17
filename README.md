@@ -56,7 +56,7 @@ The project follows a standard `src` layout to cleanly separate the core library
 
 -   **Multi-Agent Architecture**: Uses LangGraph to create a robust agentic system with intent and domain routing.
 -   **Metadata-Driven Domain Routing**: Uses a configurable `domain_metadata.json` file with rich descriptions to accurately determine the correct data domain for a user's question.
--   **Secure, Air-Gapped Execution**: The Vanna/LLM agent **never** has direct access to the database. It generates SQL, which is then sent to a separate, secure FastAPI for execution. For more details, see the [**Architecture Guide**](architecture.md).
+-   **Secure, Air-Gapped Execution**: The Vanna/LLM agent **never** has direct access to the database. It generates SQL, which is then sent to a separate, secure FastAPI for execution. For more details, see the [**Architecture Guide**](docs/architecture.md).
 -   **Production-Ready Configuration**: Dynamically constructs service URLs from their constituent parts (scheme, host, port), supporting both local HTTP and production HTTPS deployments.
 -   **Automated & Isolated Testing**: A `run_tests.sh` script that spins up a dedicated, isolated test environment on separate ports using a `.env.test` file, preventing collisions with the development environment.
 
