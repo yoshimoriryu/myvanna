@@ -5,10 +5,11 @@ import argparse
 from typing import List, Dict, Any
 
 # Add project root to the path to allow for absolute imports
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from src.vanna_engine import config
 from src.vanna_engine.my_vanna import MyVanna
+
 
 def get_training_data_from_folder(domain_name: str) -> Dict[str, List[Any]]:
     """Loads all training data (DDL, Docs, SQL) from a specific domain folder."""
@@ -21,7 +22,7 @@ def get_training_data_from_folder(domain_name: str) -> Dict[str, List[Any]]:
 
     try:
         with open(f"{base_path}/ddl.sql", "r") as f:
-            training_data["ddl"] = [ddl.strip() for ddl in f.read().split(';') if ddl.strip()]
+            training_data["ddl"] = [ddl.strip() for ddl in f.read().split(";") if ddl.strip()]
             print(f"Found {len(training_data['ddl'])} DDL statements.")
     except FileNotFoundError:
         print("Warning: 'ddl.sql' not found.")
@@ -42,6 +43,7 @@ def get_training_data_from_folder(domain_name: str) -> Dict[str, List[Any]]:
 
     return training_data
 
+
 def synchronize_domain(domain_name: str):
     """Synchronizes the training data for a single domain with the Qdrant vector store."""
     print(f"\n--- Starting synchronization for domain: '{domain_name}' ---")
@@ -55,29 +57,54 @@ def synchronize_domain(domain_name: str):
 
     print("\nStep 2: Fetching existing training data IDs from Vanna...")
     remote_ids = set(vn.get_all_training_data_ids())
-    print(f"Found {len(remote_ids)} existing entries.")
+    print(f"Found {len(remote_ids)} existing entries in collection.")
 
-    print("\nStep 3: Upserting local data to Vanna...")
+    # --- NEW: Pre-calculate expected IDs to provide a clear summary ---
     expected_ids = set()
     for ddl in local_data.get("ddl", []):
-        entry_id = vn.add_ddl(ddl)
-        if entry_id: expected_ids.add(entry_id)
+        expected_ids.add(vn.get_deterministic_id(ddl))
     for doc in local_data.get("documentation", []):
-        entry_id = vn.add_documentation(doc)
-        if entry_id: expected_ids.add(entry_id)
+        expected_ids.add(vn.get_deterministic_id(doc))
     for sql_pair in local_data.get("sql", []):
-        entry_id = vn.add_question_sql(sql=sql_pair["sql"], question=sql_pair["question"])
-        if entry_id: expected_ids.add(entry_id)
-    
-    print("\nStep 4: Calculating stale data to be removed...")
-    stale_ids = list(remote_ids - expected_ids)
+        expected_ids.add(vn.get_deterministic_id(sql_pair["question"]))
+
+    # --- NEW: Calculate and print a detailed summary before taking action ---
+    stale_ids = remote_ids - expected_ids
+    new_ids = expected_ids - remote_ids
+    updated_ids = expected_ids.intersection(remote_ids)
+
+    print("\nStep 3: Synchronization Plan")
+    print("---------------------------------")
+    print(f"- Total local items found:      {len(expected_ids)}")
+    print(f"- New items to be added:        {len(new_ids)}")
+    print(f"- Existing items to be updated: {len(updated_ids)}")
+    print(f"- Stale remote items to remove: {len(stale_ids)}")
+    print("---------------------------------")
+
+    # --- Step 4: Execute the upsert process ---
+    print("\nStep 4: Upserting local data to Vanna...")
+    items_upserted = 0
+    for ddl in local_data.get("ddl", []):
+        if vn.add_ddl(ddl):
+            items_upserted += 1
+    for doc in local_data.get("documentation", []):
+        if vn.add_documentation(doc):
+            items_upserted += 1
+    for sql_pair in local_data.get("sql", []):
+        if vn.add_question_sql(sql=sql_pair["sql"], question=sql_pair["question"]):
+            items_upserted += 1
+    print(f"Successfully upserted {items_upserted} items.")
+
+    # --- Step 5: Execute the removal of stale data ---
+    print("\nStep 5: Removing stale data...")
     if stale_ids:
-        print(f"Found {len(stale_ids)} stale entries to remove.")
-        vn.remove_training_data(ids=stale_ids)
+        print(f"Removing {len(stale_ids)} stale entries...")
+        vn.remove_training_data(ids=list(stale_ids))
     else:
-        print("No stale data found.")
+        print("No stale data to remove.")
 
     print(f"\n--- Synchronization for domain '{domain_name}' complete! ---")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Synchronize training data with Vanna.")

@@ -142,6 +142,7 @@ def intent_router_node(state: GraphState) -> dict:
     else:
         return {"next_tool": "GENERAL_CHAT"}
 
+
 def domain_router_node(state: GraphState) -> dict:
     """
     Analyzes the user's question to determine the most relevant Vanna domain.
@@ -179,6 +180,7 @@ def domain_router_node(state: GraphState) -> dict:
             "error_message": f"I can't determine the correct data domain. Please be more specific about the topic (e.g., students, faculty)."
         }
 
+
 def generate_sql_node(state: GraphState) -> dict:
     """
     Uses the appropriate Vanna instance to generate a SQL query.
@@ -197,6 +199,7 @@ def generate_sql_node(state: GraphState) -> dict:
         return {"sql_query": sql}
     except Exception as e:
         return {"error_message": f"An error occurred during SQL generation: {e}"}
+
 
 def execute_sql_node(state: GraphState) -> dict:
     """
@@ -231,6 +234,7 @@ def execute_sql_node(state: GraphState) -> dict:
         print(error_msg)
         return {"error_message": error_msg}
 
+
 def explain_results_node(state: GraphState) -> dict:
     """
     Uses the LLM to explain the query results in natural language.
@@ -250,6 +254,7 @@ def explain_results_node(state: GraphState) -> dict:
     print(f"Generated Explanation: {explanation}")
     return {"explanation": explanation}
 
+
 def general_chat_node(state: GraphState) -> dict:
     """
     Handles general conversation that doesn't require database access.
@@ -263,6 +268,7 @@ def general_chat_node(state: GraphState) -> dict:
     explanation = response.text.strip()
     print(f"Generated Chat Response: {explanation}")
     return {"explanation": explanation}
+
 
 def build_graph():
     """

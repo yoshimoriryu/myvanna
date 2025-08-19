@@ -3,12 +3,13 @@ import sys
 
 # --- Updated Imports for New Structure ---
 # Add the project root to the path to allow for absolute imports
-sys.path.insert(0, '.')
+sys.path.insert(0, ".")
 from src.chatbot.agent import (
     initialize_llm_and_vanna,
     build_graph,
     AVAILABLE_DOMAINS,
 )
+
 
 def main_cli_loop():
     """
@@ -56,6 +57,7 @@ def main_cli_loop():
             break
 
     print("\n--- Conversation Ended ---")
+
 
 if __name__ == "__main__":
     # To run the CLI, you will now execute `python run_cli.py`

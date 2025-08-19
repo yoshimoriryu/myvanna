@@ -64,4 +64,5 @@ VANNA_CONFIG_DICT = {
     "temperature": VANNA_TEMPERATURE,
     "max_tokens": VANNA_MAX_TOKENS,
     "qdrant_url": QDRANT_URL,
+    "qdrant_api_key": QDRANT_API_KEY,
 }

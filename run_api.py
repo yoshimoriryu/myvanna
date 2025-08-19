@@ -18,10 +18,14 @@ app = FastAPI(
     version="1.0.0",
 )
 
+
 # --- Pydantic Models ---
 class ChatRequest(BaseModel):
-    session_id: str | None = Field(None, description="A unique identifier for the conversation session.")
+    session_id: str | None = Field(
+        None, description="A unique identifier for the conversation session."
+    )
     message: str = Field(..., description="The user's message.")
+
 
 class ChatResponse(BaseModel):
     session_id: str
@@ -29,8 +33,10 @@ class ChatResponse(BaseModel):
     error: bool = False
     error_message: str | None = None
 
+
 # --- Global Agent Variable ---
 agent_app = None
+
 
 # --- Database Dependency ---
 def get_db():
@@ -39,6 +45,7 @@ def get_db():
         yield db
     finally:
         db.close()
+
 
 # --- Application Lifecycle Events ---
 @app.on_event("startup")
@@ -54,19 +61,23 @@ async def startup_event():
     initialize_llm_and_vanna()
     print("--- API Ready ---")
 
+
 # --- Helper Functions ---
 def convert_db_messages_to_langchain(messages: List[state_db.Message]) -> List[BaseMessage]:
     return [HumanMessage(content=msg.content) for msg in messages if msg.message_type == "human"]
+
 
 # --- API Endpoints ---
 @app.post("/chat", response_model=ChatResponse)
 async def chat_with_agent(request: ChatRequest, db: Session = Depends(get_db)):
     if not agent_app:
         raise HTTPException(status_code=503, detail="Chatbot agent is not available.")
-    
+
     session_id = request.session_id
     if session_id:
-        conversation = db.query(state_db.Conversation).filter(state_db.Conversation.id == session_id).first()
+        conversation = (
+            db.query(state_db.Conversation).filter(state_db.Conversation.id == session_id).first()
+        )
         if not conversation:
             raise HTTPException(status_code=404, detail=f"Session ID '{session_id}' not found.")
     else:
@@ -88,32 +99,41 @@ async def chat_with_agent(request: ChatRequest, db: Session = Depends(get_db)):
     initial_state: GraphState = {"messages": langchain_history}
 
     import builtins
+
     original_input = builtins.input
     builtins.input = lambda _: "y"
     try:
         final_state = agent_app.invoke(initial_state)
-        response_data = final_state.get("error_message") or final_state.get("explanation") or "An unexpected issue occurred."
+        response_data = (
+            final_state.get("error_message")
+            or final_state.get("explanation")
+            or "An unexpected issue occurred."
+        )
         is_error = "error_message" in final_state
         return ChatResponse(
-            session_id=session_id, 
-            response=response_data, 
-            error=is_error, 
-            error_message=final_state.get("error_message")
+            session_id=session_id,
+            response=response_data,
+            error=is_error,
+            error_message=final_state.get("error_message"),
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An internal error occurred: {e}")
     finally:
         builtins.input = original_input
 
+
 @app.get("/history/{session_id}", response_model=List[Dict[str, Any]])
 async def get_conversation_history(session_id: str, db: Session = Depends(get_db)):
-    conversation = db.query(state_db.Conversation).filter(state_db.Conversation.id == session_id).first()
+    conversation = (
+        db.query(state_db.Conversation).filter(state_db.Conversation.id == session_id).first()
+    )
     if not conversation:
         raise HTTPException(status_code=404, detail="Session ID not found.")
     return [
         {"type": msg.message_type, "content": msg.content, "created_at": msg.created_at}
         for msg in conversation.messages
     ]
+
 
 # --- Main Entry Point ---
 if __name__ == "__main__":
