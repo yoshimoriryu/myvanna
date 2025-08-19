@@ -1,143 +1,165 @@
 # MyVanna: A Multi-Agent, Secure Data Chatbot
 
-This project provides a production-ready, multi-agent implementation of Vanna AI, designed to answer questions securely against a private PostgreSQL database. It features a sophisticated, air-gapped architecture that separates the AI reasoning engine from the data execution engine.
-
--   **AI Orchestration**: LangGraph
--   **LLM & Embeddings**: Google Gemini
--   **Vector Store**: Qdrant (secured with an API key)
--   **Data Source**: PostgreSQL
--   **Environment Management**: Docker Compose
-
-The system is organized into a reusable core engine, a secure execution API, a multi-agent chatbot application, an idempotent data synchronizer, and a full, multi-layered test suite.
-
-<br>
-
-## 📂 Project Structure
-
-The project follows a standard `src` layout to cleanly separate the core library from the applications that use it.
-
-```
-.
-├── apps/
-│   ├── multi_agent_chatbot.py    # The main LangGraph-powered chatbot application
-│   └── synchronizer.py           # Idempotent tool to sync training data to Qdrant
-├── src/
-│   └── vanna_engine/
-│       ├── __init__.py           # Makes the engine an installable package
-│       ├── my_vanna.py           # The reusable, configurable MyVanna engine/class
-│       └── config.py             # Centralized configuration loader from .env
-├── secure_api/
-│   └── main.py                   # Secure, air-gapped FastAPI for SQL execution
-├── training_data/
-│   └── students/                 # Example domain for student data
-│       ├── ddl.sql
-│       ├── docs.txt
-│       └── sql.json
-├── tests/
-│   ├── test_integration_vanna.py # Tests for the core vanna_engine
-│   ├── test_secure_api.py        # Integration tests for the secure API
-│   └── test_chatbot_nodes.py     # Unit tests for the agent nodes using mocks
-├── scripts/
-│   ├── run_tests.sh              # Automated script to manage and run the test suite
-│   └── run_training.sh           # Convenience script to run the data synchronizer
-├── architecture.md               # **NEW**: Explains the secure, air-gapped architecture
-├── domain_metadata.json          # Configuration for the Domain Router
-├── docker-compose.yml            # Main Docker Compose for development
-├── docker-compose-tests.yml      # Isolated Docker Compose for testing
-├── .env.example                  # Example environment variables
-├── .env.test                     # Overrides for the isolated test environment
-├── pyproject.toml
-└── README.md
-```
-
-<br>
-
-## ⚙️ Features
-
--   **Multi-Agent Architecture**: Uses LangGraph to create a robust agentic system with intent and domain routing.
--   **Metadata-Driven Domain Routing**: Uses a configurable `domain_metadata.json` file with rich descriptions to accurately determine the correct data domain for a user's question.
--   **Secure, Air-Gapped Execution**: The Vanna/LLM agent **never** has direct access to the database. It generates SQL, which is then sent to a separate, secure FastAPI for execution. For more details, see the [**Architecture Guide**](docs/architecture.md).
--   **Production-Ready Configuration**: Dynamically constructs service URLs from their constituent parts (scheme, host, port), supporting both local HTTP and production HTTPS deployments.
--   **Automated & Isolated Testing**: A `run_tests.sh` script that spins up a dedicated, isolated test environment on separate ports using a `.env.test` file, preventing collisions with the development environment.
-
-<br>
-
-## 🚀 Getting Started
-
-### 1️⃣ Prerequisites
-
--   Python 3.10+
--   [Poetry](https://python-poetry.org/)
--   [Docker](https://www.docker.com/) and Docker Compose
-
-### 2️⃣ Install Dependencies
-
-```bash
-poetry install
-```
-
-### 3️⃣ Configure Environment
-
-**A. Create `.env` file:**
-Create a `.env` file from the `.env.example`. This file configures the main development environment.
-
-**B. Create `domain_metadata.json` file:**
-This file is **required** and configures the Domain Router. Create a `domain_metadata.json` file in the project root. For each domain you want to activate, add an entry with a concise, descriptive summary.
-
-```json domain_metadata.json
-{
-    "students": "Contains data about student enrollment, courses, demographics, and academic status."
-}
-```
-
-**C. Review `.env.test`:**
-This file (`.env.test`) is already configured to run the test environment on different ports (`5433`, `6334`) to avoid conflicts. You typically do not need to edit this file.
-
-### 4️⃣ Train a Domain
-
-For each domain defined in your metadata file, you must train it using the `run_training.sh` script.
-
-**Example for the "students" domain:**
-```bash
-./scripts/run_training.sh students
-```
-
-### 5️⃣ Start Services (3 Terminals Required)
-
-The full application runs as three separate processes.
-
-**Terminal 1: Start Infrastructure**
-```bash
-docker compose up -d
-```
-
-**Terminal 2: Start the Secure Execution API**
-```bash
-poetry run uvicorn secure_api.main:app --reload
-```
-
-**Terminal 3: Start the Multi-Agent Chatbot**
-```bash
-poetry run python apps/multi_agent_chatbot.py
-```
-
-### 6️⃣ Run Integration Tests (Recommended)
-
-Verify that the entire setup is working correctly with the automated test script.
-```bash
-./scripts/run_tests.sh
-```
+This project is a smart chatbot that can answer questions about your data. It's built with a secure, air-gapped design that keeps the AI reasoning engine separate from the database execution engine.
 
 ---
 
-## 🧩 How It Works
+## 🚀 Windows Quick Start Guide (for Absolute Beginners)
 
-The system operates as a sophisticated, multi-agent workflow orchestrated by LangGraph.
+If you are using Windows and have never coded before, this guide is for you! Follow these steps exactly.
 
-1.  **Intent & Domain Routing**: A two-stage routing process first determines if a question is for the database, and if so, uses the `domain_metadata.json` to select the correct domain.
+### Step 1: Install the Tools
 
-2.  **SQL Generation**: The query is passed to the appropriate `MyVanna` instance, which uses RAG to generate a SQL query.
+First, you need to install three programs on your computer.
 
-3.  **Secure Execution**: The SQL is passed to an **Execution Node** which asks the user for approval, then calls the **Secure Execution API**. See the [**Architecture Guide**](architecture.md) for a detailed breakdown of this security model.
+1.  **Python**: [Download Python here](https://www.python.org/downloads/) (Version 3.10 or newer). **Important:** During installation, make sure to check the box that says **"Add Python to PATH"**.
+2.  **Docker Desktop**: [Download Docker here](https://www.docker.com/products/docker-desktop/). This runs our database. After installing, start Docker Desktop and let it run.
+3.  **Poetry**: This tool manages the Python libraries.
+    *   Open a terminal called **PowerShell** (search for it in your Start Menu).
+    *   Copy and paste the following command into PowerShell and press Enter:
+      ```powershell
+      (Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | python -
+      ```
 
-4.  **Data Retrieval & Explanation**: The Secure API executes the query and returns the results as JSON. This is passed to an **Explanation Node** which synthesizes a final, natural-language answer.
+**Important**: After installing everything, **restart your computer** to make sure all the commands are available.
+
+### Step 2: Open a Terminal in the Project Folder
+
+This is a critical step. We need to run commands from inside the project folder.
+
+1.  Open the **File Explorer** (the yellow folder icon on your taskbar).
+2.  Navigate to the folder where you unzipped or downloaded the project code.
+3.  Click once in the **address bar** at the top of the File Explorer window. The path (e.g., `C:\Users\YourName\Downloads\MyVanna-main`) will turn blue.
+4.  Type the word `cmd` directly into the address bar and press **Enter**. (Yes, you replace the address bar with your typed `cmd`)
+
+A black terminal window will pop up. It will already be running inside your project folder! **All the following commands must be run in this new window.**
+
+### Step 3: Set Up the Project
+
+Now, with your new terminal window open, let's get the project ready.
+
+**A. Install Python Libraries**
+Run this command to download all the necessary code libraries.
+```cmd
+poetry install
+```
+
+**B. Configure Your API Key**
+The chatbot uses Google's Gemini AI. You need to give it your secret API key.
+
+1.  Make a copy of the example file by running this command:
+    ```cmd
+    copy .env.example .env
+    ```
+2.  **Get your Gemini API Key** from [Google AI Studio](https://aistudio.google.com/app/apikey).
+3.  Open the project folder in File Explorer and find the new `.env` file. Open it with **Notepad**.
+4.  Paste your key into this line:
+    ```
+    GEMINI_API_KEY=your-api-key-goes-here
+    ```
+    Save and close the file.
+
+### Step 4: "Teach" the AI About Your Data
+
+This command loads the information about the `students` database into the AI's memory.
+```cmd
+poetry run python tools/synchronizer.py students
+```
+
+### Step 5: Run the Application (You need 3 Terminals!)
+
+The application runs in three parts. You must open **three separate Command Prompt windows**, all in the project folder (repeat Step 2 to open new ones). Run one command in each and leave them running.
+
+**Terminal 1️⃣: Start the Database**
+```cmd
+docker-compose up
+```
+*You will see a lot of log messages. Just leave this terminal running.*
+
+**Terminal 2️⃣: Start the Secure API**
+```cmd
+poetry run python run_api.py
+```
+*Leave this terminal running.*
+
+**Terminal 3️⃣: Start the Chatbot**
+```cmd
+poetry run python run_cli.py
+```
+
+### Step 6: Talk to the Chatbot!
+
+If everything worked, you will see a message in Terminal 3 that says `--- Starting Chat ---`.
+
+You can now ask it questions about the data! Try this one:
+`How many students are there?`
+
+Congratulations, you have the project running!
+
+---
+<br>
+
+## 🍎 Linux & macOS Quick Start
+
+This guide is for users on Linux or macOS systems.
+
+1.  **Install Tools**: Ensure you have Python 3.10+, Docker, and Poetry installed.
+2.  **Install Dependencies**: `poetry install`
+3.  **Configure**: `cp .env.example .env` and add your `GEMINI_API_KEY`.
+4.  **Train**: `./scripts/run_training.sh students`
+5.  **Run**: Open three terminals and run the following commands:
+    *   **Terminal 1**: `docker-compose up`
+    *   **Terminal 2**: `poetry run python run_api.py`
+    *   **Terminal 3**: `poetry run python run_cli.py`
+
+---
+<br>
+
+## ⚙️ For Developers: Detailed Guide
+
+### Project Structure
+
+```
+.
+├── docs/
+│   ├── architecture.md           # Diagram and explanation of the secure architecture
+│   └── PRD.md                    # Project Requirements Document
+├── src/
+│   ├── chatbot/
+│   │   └── agent.py              # Core LangGraph agent logic
+│   └── vanna_engine/
+│       ├── my_vanna.py           # The reusable, configurable Vanna engine
+│       └── config.py             # Centralized configuration loader from .env
+├── secure_api/
+│   └── main.py                   # Secure, air-gapped FastAPI for SQL execution
+├── tools/
+│   └── synchronizer.py           # Idempotent tool to sync training data to Qdrant
+├── training_data/
+│   ├── students/                 # Example domain for student data
+│   ├── faculty/                  # Example domain for faculty data
+│   └── ...
+├── tests/
+│   ├── test_integration_vanna.py # Tests for the core vanna_engine
+│   ├── test_secure_api.py        # Integration tests for the secure API
+│   └── test_chatbot_nodes.py     # Unit tests for the agent nodes
+├── scripts/
+│   ├── run_tests.sh              # Automated script to manage and run the test suite
+│   └── run_training.sh           # Convenience script for the synchronizer
+├── run_api.py                    # Entry point to run the Secure API
+├── run_cli.py                    # Entry point to run the Chatbot
+├── domain_metadata.json          # Configuration for the Domain Router
+├── docker-compose.yml            # Main Docker Compose for development
+└── pyproject.toml
+```
+
+### Advanced Configuration
+
+-   **Multiple Domains**: To add a new domain (e.g., `faculty`), create a new folder under `training_data/` and populate it with `ddl.sql`, `docs.txt`, and `sql.json`. Then, update `domain_metadata.json` with a description for the new domain and train it with `./scripts/run_training.sh faculty` (or `poetry run python tools/synchronizer.py faculty` on Windows).
+-   **Test Environment**: The `.env.test` file is pre-configured to run services on alternate ports to avoid conflicts. The `run_tests.sh` script handles the setup and teardown of this environment automatically.
+
+### Running Tests
+
+To verify the entire system, run the automated test script. This will spin up the isolated test environment, run all tests, and then shut the environment down.
+```bash
+./scripts/run_tests.sh
+```
