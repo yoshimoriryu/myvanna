@@ -1,6 +1,6 @@
 import uvicorn
 import uuid
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any
 from sqlalchemy.orm import Session
@@ -66,6 +66,65 @@ async def startup_event():
 def convert_db_messages_to_langchain(messages: List[state_db.Message]) -> List[BaseMessage]:
     return [HumanMessage(content=msg.content) for msg in messages if msg.message_type == "human"]
 
+@app.websocket("/ws/chat/{session_id}")
+async def websocket_chat(websocket: WebSocket, session_id: str, db: Session = Depends(get_db)):
+    """
+    Handles a persistent chat session over WebSockets.
+    """
+    await websocket.accept()
+
+    # First, verify that the conversation session exists
+    conversation = db.query(state_db.Conversation).filter(state_db.Conversation.id == session_id).first()
+    if not conversation:
+        await websocket.send_json({"error": True, "message": f"Session ID '{session_id}' not found."})
+        await websocket.close()
+        return
+
+    await websocket.send_json({"error": False, "message": "Connection successful. Ready to chat."})
+
+    try:
+        while True:
+            # Wait for a message from the client
+            user_message_content = await websocket.receive_text()
+
+            # --- This logic is nearly identical to the HTTP endpoint ---
+            # 1. Save the user's message to the database
+            user_message = state_db.Message(
+                conversation_id=session_id, message_type="human", content=user_message_content
+            )
+            db.add(user_message)
+            db.commit()
+
+            # 2. Load history and invoke the agent
+            history_from_db = conversation.messages
+            langchain_history = convert_db_messages_to_langchain(history_from_db)
+            initial_state: GraphState = {"messages": langchain_history}
+
+            import builtins
+            original_input = builtins.input
+            builtins.input = lambda _: "y"  # Auto-approve SQL
+            try:
+                final_state = agent_app.invoke(initial_state)
+                response_data = final_state.get("error_message") or final_state.get("explanation") or "An unexpected issue occurred."
+                is_error = "error_message" in final_state
+                
+                # 3. Send the response back over the WebSocket
+                await websocket.send_json({
+                    "session_id": session_id,
+                    "response": response_data,
+                    "error": is_error,
+                    "error_message": final_state.get("error_message")
+                })
+            finally:
+                builtins.input = original_input
+
+    except WebSocketDisconnect:
+        print(f"Client disconnected from session {session_id}")
+    except Exception as e:
+        print(f"An error occurred in WebSocket session {session_id}: {e}")
+        await websocket.send_json({"error": True, "message": "An internal error occurred."})
+    finally:
+        db.close()
 
 # --- API Endpoints ---
 @app.post("/chat", response_model=ChatResponse)

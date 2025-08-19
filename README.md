@@ -78,21 +78,21 @@ docker-compose up
 
 **Terminal 2️⃣: Start the Secure API**
 ```cmd
-poetry run python run_api.py
+poetry run uvicorn secure_api.main:app --reload
 ```
 *Leave this terminal running.*
 
-**Terminal 3️⃣: Start the Chatbot**
+**Terminal 3️⃣: Start the Chatbot API**
 ```cmd
-poetry run python run_cli.py
+poetry run python run_api.py
 ```
 
 ### Step 6: Talk to the Chatbot!
 
-If everything worked, you will see a message in Terminal 3 that says `--- Starting Chat ---`.
+If everything worked, you will go to localhost:8000/docs. There, you will see two API's, go try them out!
 
-You can now ask it questions about the data! Try this one:
-`How many students are there?`
+Find `/chat` API and you can now ask it questions about the data! Try this one:
+`How many students are there?` (you can leave the `session_id` empty)
 
 Congratulations, you have the project running!
 
