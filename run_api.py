@@ -1,3 +1,4 @@
+import asyncio
 import uvicorn
 import uuid
 from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect
@@ -9,6 +10,7 @@ from langchain_core.messages import BaseMessage, HumanMessage
 # --- Updated Imports for New Structure ---
 from src.chatbot.agent import build_graph, initialize_llm_and_vanna, GraphState
 from src.chatbot import state_db
+from src.chatbot.state_db import Message, Conversation
 from src.vanna_engine import config
 
 # --- API Setup ---
@@ -63,7 +65,7 @@ async def startup_event():
 
 
 # --- Helper Functions ---
-def convert_db_messages_to_langchain(messages: List[state_db.Message]) -> List[BaseMessage]:
+def convert_db_messages_to_langchain(messages: List[Message]) -> List[BaseMessage]:
     return [HumanMessage(content=msg.content) for msg in messages if msg.message_type == "human"]
 
 @app.websocket("/ws/chat/{session_id}")
@@ -74,7 +76,7 @@ async def websocket_chat(websocket: WebSocket, session_id: str, db: Session = De
     await websocket.accept()
 
     # First, verify that the conversation session exists
-    conversation = db.query(state_db.Conversation).filter(state_db.Conversation.id == session_id).first()
+    conversation = db.query(Conversation).filter(Conversation.id == session_id).first()
     if not conversation:
         await websocket.send_json({"error": True, "message": f"Session ID '{session_id}' not found."})
         await websocket.close()
@@ -89,7 +91,7 @@ async def websocket_chat(websocket: WebSocket, session_id: str, db: Session = De
 
             # --- This logic is nearly identical to the HTTP endpoint ---
             # 1. Save the user's message to the database
-            user_message = state_db.Message(
+            user_message = Message(
                 conversation_id=session_id, message_type="human", content=user_message_content
             )
             db.add(user_message)
@@ -135,18 +137,18 @@ async def chat_with_agent(request: ChatRequest, db: Session = Depends(get_db)):
     session_id = request.session_id
     if session_id:
         conversation = (
-            db.query(state_db.Conversation).filter(state_db.Conversation.id == session_id).first()
+            db.query(Conversation).filter(Conversation.id == session_id).first()
         )
         if not conversation:
             raise HTTPException(status_code=404, detail=f"Session ID '{session_id}' not found.")
     else:
-        conversation = state_db.Conversation()
+        conversation = Conversation()
         db.add(conversation)
         db.commit()
         db.refresh(conversation)
         session_id = conversation.id
 
-    user_message = state_db.Message(
+    user_message = Message(
         conversation_id=session_id, message_type="human", content=request.message
     )
     db.add(user_message)
@@ -184,7 +186,7 @@ async def chat_with_agent(request: ChatRequest, db: Session = Depends(get_db)):
 @app.get("/history/{session_id}", response_model=List[Dict[str, Any]])
 async def get_conversation_history(session_id: str, db: Session = Depends(get_db)):
     conversation = (
-        db.query(state_db.Conversation).filter(state_db.Conversation.id == session_id).first()
+        db.query(Conversation).filter(Conversation.id == session_id).first()
     )
     if not conversation:
         raise HTTPException(status_code=404, detail="Session ID not found.")

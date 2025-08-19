@@ -195,6 +195,10 @@ def generate_sql_node(state: GraphState) -> dict:
         sql = active_vanna.get_sql(question)
         if not sql:
             return {"error_message": "Vanna could not generate SQL for this question."}
+        sql_upper = sql.strip().upper()
+        if not (sql_upper.startswith("SELECT") or sql_upper.startswith("WITH")):
+            print(f"Vanna did not return valid SQL. Output: {sql}")
+            return {"error_message": "I was unable to construct a valid SQL query for your question. Please try rephrasing it, or provide more context."}
         print(f"Generated SQL: {sql}")
         return {"sql_query": sql}
     except Exception as e:
@@ -282,6 +286,7 @@ def build_graph():
     workflow.add_node("execute_sql", execute_sql_node)
     workflow.add_node("explain_results", explain_results_node)
     workflow.add_node("general_chat", general_chat_node)
+
     workflow.set_entry_point("intent_router")
     workflow.add_conditional_edges(
         "intent_router",
@@ -293,7 +298,14 @@ def build_graph():
         lambda state: "error" if state.get("error_message") else "continue",
         {"continue": "generate_sql", "error": END},
     )
-    workflow.add_edge("generate_sql", "execute_sql")
+    workflow.add_conditional_edges(
+        "generate_sql",
+        lambda state: "error" if state.get("error_message") else "continue",
+        {
+            "continue": "execute_sql",
+            "error": END,
+        },
+    )
     workflow.add_conditional_edges(
         "execute_sql",
         lambda state: "error" if state.get("error_message") else "success",
