@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from typing import List, Dict, Any
 from sqlalchemy.orm import Session
 from langchain_core.messages import BaseMessage, HumanMessage
+import logging
 
 # --- Updated Imports for New Structure ---
 from src.chatbot.agent import build_graph, initialize_llm_and_vanna, GraphState
@@ -55,7 +56,12 @@ async def startup_event():
     print("--- API Starting Up ---")
     global agent_app
     print("Connecting to the chatbot state database...")
-    state_db.init_database_connection(config.CHATBOT_STATE_DB_URL)
+    db_url = (
+        f"postgresql+psycopg2://{config.CHATBOT_DB_USER}:{config.CHATBOT_DB_PASSWORD}@"
+        f"{config.CHATBOT_DB_HOST}:5432/{config.CHATBOT_DB_NAME}"
+    )
+    # logging.INFO(db_url)
+    state_db.init_database_connection(db_url)
     state_db.create_tables()
     print("Database connection successful.")
     print("Initializing Vanna domains and building the agent...")
@@ -109,6 +115,13 @@ async def websocket_chat(websocket: WebSocket, session_id: str, db: Session = De
                 final_state = agent_app.invoke(initial_state)
                 response_data = final_state.get("error_message") or final_state.get("explanation") or "An unexpected issue occurred."
                 is_error = "error_message" in final_state
+                
+                if not is_error and response_data:
+                    ai_message = Message(
+                        conversation_id=session_id, message_type="ai", content=response_data
+                    )
+                    db.add(ai_message)
+                    db.commit()
                 
                 # 3. Send the response back over the WebSocket
                 await websocket.send_json({
@@ -171,6 +184,14 @@ async def chat_with_agent(request: ChatRequest, db: Session = Depends(get_db)):
             or "An unexpected issue occurred."
         )
         is_error = "error_message" in final_state
+        
+        if not is_error and response_data:
+            ai_message = Message(
+                conversation_id=session_id, message_type="ai", content=response_data
+            )
+            db.add(ai_message)
+            db.commit()
+
         return ChatResponse(
             session_id=session_id,
             response=response_data,
@@ -196,7 +217,29 @@ async def get_conversation_history(session_id: str, db: Session = Depends(get_db
     ]
 
 
-# --- Main Entry Point ---
-if __name__ == "__main__":
-    # This allows you to run the API directly with `python run_api.py`
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+class FeedbackRequest(BaseModel):
+    message_id: str = Field(..., description="The ID of the AI message being rated.")
+    rating: int = Field(..., description="The feedback rating (e.g., 1 for thumbs up, -1 for thumbs down).")
+    text: str | None = Field(None, description="Optional textual feedback from the user.")
+
+
+@app.post("/feedback")
+async def receive_feedback(request: FeedbackRequest, db: Session = Depends(get_db)):
+    """
+    Receives and stores user feedback for a specific AI message.
+    """
+    message_to_update = db.query(Message).filter(Message.id == request.message_id).first()
+
+    if not message_to_update:
+        raise HTTPException(status_code=404, detail="Message ID not found.")
+
+    if message_to_update.message_type != "ai":
+        raise HTTPException(status_code=400, detail="Feedback can only be provided for AI messages.")
+
+    message_to_update.feedback_rating = request.rating
+    message_to_update.feedback_text = request.text
+    db.commit()
+
+    return {"status": "success", "message": "Feedback received successfully."}
+
+# poetry run uvicorn run_api:app --reload --port 8001 --host 0.0.0.0

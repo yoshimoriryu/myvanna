@@ -21,7 +21,7 @@ class SQLQuery(BaseModel):
 
 # Create the database engine once when the API starts
 try:
-    db_url = f"postgresql://{config.POSTGRES_USER}:{config.POSTGRES_PASSWORD}@{config.POSTGRES_HOST}:{config.POSTGRES_PORT}/{config.POSTGRES_DB}"
+    db_url = f"postgresql://{config.POSTGRES_USER}:{config.POSTGRES_PASSWORD}@{config.POSTGRES_HOST}:5432/{config.POSTGRES_DB}"
     engine = create_engine(db_url)
     print("--- Secure API connected to PostgreSQL successfully. ---")
 except Exception as e:

@@ -18,6 +18,29 @@ services:
     volumes:
       - private_db_data:/var/lib/postgresql/data
     # restart: unless-stopped
+    networks:
+      - private_secure_api
+
+  secure-api:
+    build:
+      context: .
+      dockerfile: src/chatbot/Dockerfile
+    volumes:
+    - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+      - POSTGRES_USER={POSTGRES_USER}
+      - POSTGRES_PASSWORD={POSTGRES_PASSWORD}
+      - POSTGRES_DB={POSTGRES_DB}
+      - POSTGRES_HOST=chatbot-state-db
+      - POSTGRES_PORT=5432
+    depends_on:
+      - private-data-db
+    networks:
+      - private_secure_api
+    command: uvicorn secure_api.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
 
   # --- CHATBOT APPLICATION ENVIRONMENT ---
   # This database stores the application's state, such as conversation histories.
@@ -33,6 +56,8 @@ services:
     volumes:
       - chatbot_db_data:/var/lib/postgresql/data
     # restart: unless-stopped
+    networks:
+      - myvanna_network
 
   qdrant:
     image: qdrant/qdrant
@@ -44,6 +69,29 @@ services:
     volumes:
       - qdrant_data:/qdrant/storage
     # restart: unless-stopped
+    networks:
+      - myvanna_network
+
+  chatbot-api:
+    build:
+      context: .
+      dockerfile: src/chatbot/Dockerfile
+    volumes:
+    - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+      - POSTGRES_USER={CHATBOT_DB_USER}
+      - POSTGRES_PASSWORD={CHATBOT_DB_PASSWORD}
+      - POSTGRES_DB={CHATBOT_DB_NAME}
+      - POSTGRES_HOST=chatbot-state-db
+      - POSTGRES_PORT=5432
+    depends_on:
+      - chatbot-state-db
+    networks:
+      - myvanna_network
+    command: uvicorn src.chatbot.run_api:app --host 0.0.0.0 --port 8001
+    ports:
+      - "8001:8001"
 
 volumes:
   private_db_data:
@@ -52,4 +100,6 @@ volumes:
 
 networks:
   myvanna_network:
+    driver: bridge
+  private_secure_api:
     driver: bridge

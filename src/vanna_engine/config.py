@@ -42,12 +42,6 @@ CHATBOT_DB_PORT = os.getenv("CHATBOT_DB_PORT", "5434")
 # URL-encode the password to handle special characters safely
 encoded_chatbot_db_password = quote_plus(CHATBOT_DB_PASSWORD)
 
-# Construct the SQLAlchemy database URL
-CHATBOT_STATE_DB_URL = (
-    f"postgresql+psycopg2://{CHATBOT_DB_USER}:{encoded_chatbot_db_password}@"
-    f"{CHATBOT_DB_HOST}:{CHATBOT_DB_PORT}/{CHATBOT_DB_NAME}"
-)
-
 # --- Pre-flight Checks ---
 if not GEMINI_API_KEY:
     raise ValueError("GEMINI_API_KEY is not set in the environment variables.")

@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, String, ForeignKey, Text, DateTime
+from sqlalchemy import create_engine, Column, String, ForeignKey, Text, DateTime, Integer
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 from sqlalchemy.sql import func
 import uuid
@@ -37,6 +37,8 @@ class Message(Base):
     message_type = Column(String, nullable=False)
     content = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    feedback_rating = Column(Integer, nullable=True)
+    feedback_text = Column(Text, nullable=True)
 
     # This links the message back to its parent conversation
     conversation = relationship("Conversation", back_populates="messages")
