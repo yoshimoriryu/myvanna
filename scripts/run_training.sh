@@ -1,8 +1,5 @@
+Run
 #!/bin/bash
-
-# This script provides a convenient way to train a specific Vanna domain.
-# It takes the domain name as an argument and passes it to the main
-# synchronizer tool.
 
 # Exit immediately if a command exits with a non-zero status.
 set -e
@@ -15,21 +12,12 @@ if [ -z "$1" ]; then
 fi
 
 DOMAIN=$1
-BASE_PATH="training_data/${DOMAIN}"
 
-echo "--- Preparing to train domain: '$DOMAIN' ---"
-echo "Looking for training data in: $BASE_PATH"
-echo "------------------------------------------"
+echo "--- Preparing to train domain: '$DOMAIN' via Docker ---"
 
-# --- Check if training directory exists ---
-if [ ! -d "$BASE_PATH" ]; then
-  echo "Error: Training data directory not found for domain '$DOMAIN'."
-  echo "Please ensure the directory '$BASE_PATH' exists."
-  exit 1
-fi
-
-# --- Run the Synchronizer Tool ---
-# The synchronizer script now handles all the logic internally.
-poetry run python tools/synchronizer.py "$DOMAIN"
-
-echo "--- Training for domain '$DOMAIN' complete. ---"
+# --- Run the Synchronizer Tool Inside a One-Off Docker Container ---
+# `docker compose run`: Starts a new container for a service.
+# `--rm`: Automatically removes the container after the command exits.
+# `app`: The name of the service in docker-compose.yml to use.
+# `poetry run python ...`: The command to execute *inside* the container.
+docker compose run --rm chatbot-api python tools/synchronizer.py "$DOMAIN"

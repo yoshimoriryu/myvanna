@@ -157,6 +157,8 @@ def domain_router_node(state: GraphState) -> dict:
             if name in AVAILABLE_DOMAINS
         ]
     )
+    print(f"Available domains for routing:\n{AVAILABLE_DOMAINS}")
+    print(f"Domain options available for routing:\n{domain_options}")
     prompt = f"""You are an expert at classifying a user's question into a specific data domain. Your answer must be ONLY ONE of the domain names from the list.
 
     DOMAINS:
@@ -198,7 +200,9 @@ def generate_sql_node(state: GraphState) -> dict:
         sql_upper = sql.strip().upper()
         if not (sql_upper.startswith("SELECT") or sql_upper.startswith("WITH")):
             print(f"Vanna did not return valid SQL. Output: {sql}")
-            return {"error_message": "I was unable to construct a valid SQL query for your question. Please try rephrasing it, or provide more context."}
+            return {
+                "error_message": "I was unable to construct a valid SQL query for your question. Please try rephrasing it, or provide more context."
+            }
         print(f"Generated SQL: {sql}")
         return {"sql_query": sql}
     except Exception as e:

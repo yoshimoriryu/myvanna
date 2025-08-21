@@ -4,6 +4,9 @@ from urllib.parse import quote_plus
 
 load_dotenv()
 
+# -- Environment --
+IS_DEV = os.getenv("ENV", "dev").lower() in {"dev", "development", "debug", "debugging"}
+
 # --- Gemini Configuration ---
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
