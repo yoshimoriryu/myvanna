@@ -75,7 +75,6 @@ async def startup_event():
 def convert_db_messages_to_langchain(messages: List[Message]) -> List[BaseMessage]:
     return [HumanMessage(content=msg.content) for msg in messages if msg.message_type == "human"]
 
-
 @app.websocket("/ws/chat/{session_id}")
 async def websocket_chat(websocket: WebSocket, session_id: str, db: Session = Depends(get_db)):
     """
@@ -86,9 +85,7 @@ async def websocket_chat(websocket: WebSocket, session_id: str, db: Session = De
     # First, verify that the conversation session exists
     conversation = db.query(Conversation).filter(Conversation.id == session_id).first()
     if not conversation:
-        await websocket.send_json(
-            {"error": True, "message": f"Session ID '{session_id}' not found."}
-        )
+        await websocket.send_json({"error": True, "message": f"Session ID '{session_id}' not found."})
         await websocket.close()
         return
 
@@ -113,38 +110,32 @@ async def websocket_chat(websocket: WebSocket, session_id: str, db: Session = De
             initial_state: GraphState = {"messages": langchain_history}
 
             import builtins
-
             original_input = builtins.input
             builtins.input = lambda _: "y"  # Auto-approve SQL
             try:
                 final_state = agent_app.invoke(initial_state)
-                response_data = (
-                    final_state.get("error_message")
-                    or final_state.get("explanation")
-                    or "An unexpected issue occurred."
-                )
+                response_data = final_state.get("error_message") or final_state.get("explanation") or "An unexpected issue occurred."
                 is_error = "error_message" in final_state
+
                 sql_to_return = None
                 if not is_error and response_data:
                     ai_message = Message(
-                        conversation_id=session_id, message_type="ai", content=response_data
+                        conversation_id=session_id, message_type="model", content=response_data
                     )
                     db.add(ai_message)
                     db.commit()
-
+                    
                     if config.IS_DEV:
                         sql_to_return = final_state.get("sql_query")
 
                 # 3. Send the response back over the WebSocket
-                await websocket.send_json(
-                    {
-                        "session_id": session_id,
-                        "response": response_data,
-                        "error": is_error,
-                        "error_message": final_state.get("error_message"),
-                        "generated_sql": sql_to_return,
-                    }
-                )
+                await websocket.send_json({
+                    "session_id": session_id,
+                    "response": response_data,
+                    "error": is_error,
+                    "error_message": final_state.get("error_message"),
+                    "generated_sql": sql_to_return
+                })
             finally:
                 builtins.input = original_input
 
@@ -156,7 +147,6 @@ async def websocket_chat(websocket: WebSocket, session_id: str, db: Session = De
     finally:
         db.close()
 
-
 # --- API Endpoints ---
 @app.post("/chat", response_model=ChatResponse)
 async def chat_with_agent(request: ChatRequest, db: Session = Depends(get_db)):
@@ -165,7 +155,9 @@ async def chat_with_agent(request: ChatRequest, db: Session = Depends(get_db)):
 
     session_id = request.session_id
     if session_id:
-        conversation = db.query(Conversation).filter(Conversation.id == session_id).first()
+        conversation = (
+            db.query(Conversation).filter(Conversation.id == session_id).first()
+        )
         if not conversation:
             raise HTTPException(status_code=404, detail=f"Session ID '{session_id}' not found.")
     else:
@@ -192,7 +184,7 @@ async def chat_with_agent(request: ChatRequest, db: Session = Depends(get_db)):
     builtins.input = lambda _: "y"
     try:
         final_state = agent_app.invoke(initial_state)
-
+        
         sql_to_return = None
         if config.IS_DEV:
             sql_to_return = final_state.get("sql_query")
@@ -203,10 +195,10 @@ async def chat_with_agent(request: ChatRequest, db: Session = Depends(get_db)):
             or "An unexpected issue occurred."
         )
         is_error = "error_message" in final_state
-
+        
         if not is_error and response_data:
             ai_message = Message(
-                conversation_id=session_id, message_type="ai", content=response_data
+                conversation_id=session_id, message_type="model", content=response_data
             )
             db.add(ai_message)
             db.commit()
@@ -216,7 +208,7 @@ async def chat_with_agent(request: ChatRequest, db: Session = Depends(get_db)):
             response=response_data,
             error=is_error,
             error_message=final_state.get("error_message"),
-            generated_sql=sql_to_return,
+            generated_sql=sql_to_return
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An internal error occurred: {e}")
@@ -226,7 +218,9 @@ async def chat_with_agent(request: ChatRequest, db: Session = Depends(get_db)):
 
 @app.get("/history/{session_id}", response_model=List[Dict[str, Any]])
 async def get_conversation_history(session_id: str, db: Session = Depends(get_db)):
-    conversation = db.query(Conversation).filter(Conversation.id == session_id).first()
+    conversation = (
+        db.query(Conversation).filter(Conversation.id == session_id).first()
+    )
     if not conversation:
         raise HTTPException(status_code=404, detail="Session ID not found.")
     return [
@@ -237,9 +231,7 @@ async def get_conversation_history(session_id: str, db: Session = Depends(get_db
 
 class FeedbackRequest(BaseModel):
     message_id: str = Field(..., description="The ID of the AI message being rated.")
-    rating: int = Field(
-        ..., description="The feedback rating (e.g., 1 for thumbs up, -1 for thumbs down)."
-    )
+    rating: int = Field(..., description="The feedback rating (e.g., 1 for thumbs up, -1 for thumbs down).")
     text: str | None = Field(None, description="Optional textual feedback from the user.")
 
 
@@ -253,16 +245,13 @@ async def receive_feedback(request: FeedbackRequest, db: Session = Depends(get_d
     if not message_to_update:
         raise HTTPException(status_code=404, detail="Message ID not found.")
 
-    if message_to_update.message_type != "ai":
-        raise HTTPException(
-            status_code=400, detail="Feedback can only be provided for AI messages."
-        )
+    if message_to_update.message_type != "model":
+        raise HTTPException(status_code=400, detail="Feedback can only be provided for AI messages.")
 
     message_to_update.feedback_rating = request.rating
     message_to_update.feedback_text = request.text
     db.commit()
 
     return {"status": "success", "message": "Feedback received successfully."}
-
 
 # poetry run uvicorn run_api:app --reload --port 8001 --host 0.0.0.0

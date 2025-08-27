@@ -1,165 +1,171 @@
 # MyVanna: A Multi-Agent, Secure Data Chatbot
 
-This project is a smart chatbot that can answer questions about your data. It's built with a secure, air-gapped design that keeps the AI reasoning engine separate from the database execution engine.
+This project is a smart chatbot that can answer questions about your data. It's built with a secure, air-gapped design that keeps the AI reasoning engine separate from the database execution engine, ensuring that the AI never has direct access to your data.
 
 ---
 
-## 🚀 Windows Quick Start Guide (for Absolute Beginners)
+## Architecture Overview
 
-If you are using Windows and have never coded before, this guide is for you! Follow these steps exactly.
+The application is fully containerized using Docker Compose. A single command will launch the entire stack:
+
+1.  **Database & Vector Store**: A PostgreSQL database for your data and a Qdrant vector database for the AI's long-term memory.
+2.  **Secure SQL Executor API**: A simple, air-gapped FastAPI server (`secure_api`) that receives a SQL query, executes it, and returns the result.
+3.  **Chatbot API**: The main user-facing FastAPI server (`chatbot_api`) containing the LangGraph agent, which handles the core AI logic.
+
+This separation ensures maximum security, and Dockerization ensures a simple, one-step startup.
+
+---
+
+## 🚀 Quick Start Guide (Windows, macOS, & Linux)
+
+The setup process is similar for all operating systems.
 
 ### Step 1: Install the Tools
 
-First, you need to install three programs on your computer.
-
-1.  **Python**: [Download Python here](https://www.python.org/downloads/) (Version 3.10 or newer). **Important:** During installation, make sure to check the box that says **"Add Python to PATH"**.
-2.  **Docker Desktop**: [Download Docker here](https://www.docker.com/products/docker-desktop/). This runs our database. After installing, start Docker Desktop and let it run.
-3.  **Poetry**: This tool manages the Python libraries.
-    *   Open a terminal called **PowerShell** (search for it in your Start Menu).
-    *   Copy and paste the following command into PowerShell and press Enter:
+1.  **Python**: [Download Python here](https://www.python.org/downloads/) (Version 3.10 or newer).
+    *   On Windows, **check the box that says "Add Python to PATH"** during installation.
+2.  **Docker Desktop**: [Download Docker here](https://www.docker.com/products/docker-desktop/). After installing, **start Docker Desktop** and let it run in the background.
+3.  **Poetry** (For managing dependencies):
+    *   **Windows (in PowerShell)**:
       ```powershell
       (Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | python -
       ```
+    *   **macOS / Linux (in Terminal)**:
+      ```bash
+      curl -sSL https://install.python-poetry.org | python3 -
+      ```
 
-**Important**: After installing everything, **restart your computer** to make sure all the commands are available.
+**Important**: After installing, **restart your Terminal or PowerShell window**.
 
-### Step 2: Open a Terminal in the Project Folder
+### Step 2: Set Up the Project
 
-This is a critical step. We need to run commands from inside the project folder.
+1.  **Open your Terminal** (or PowerShell/CMD on Windows) and navigate to the project folder.
+2.  **Configure Your API Key**:
+    *   First, copy the example environment file.
+      ```bash
+      # On Windows CMD
+      copy .env.example .env
 
-1.  Open the **File Explorer** (the yellow folder icon on your taskbar).
-2.  Navigate to the folder where you unzipped or downloaded the project code.
-3.  Click once in the **address bar** at the top of the File Explorer window. The path (e.g., `C:\Users\YourName\Downloads\MyVanna-main`) will turn blue.
-4.  Type the word `cmd` directly into the address bar and press **Enter**. (Yes, you replace the address bar with your typed `cmd`)
+      # On macOS/Linux/PowerShell
+      cp .env.example .env
+      ```
+    *   Next, **get your Gemini API Key** from [Google AI Studio](https://aistudio.google.com/app/apikey).
+    *   Open the new `.env` file in a text editor and paste your key:
+      ```
+      GEMINI_API_KEY=your-api-key-goes-here
+      ```
+    *   Save and close the file.
 
-A black terminal window will pop up. It will already be running inside your project folder! **All the following commands must be run in this new window.**
+### Step 3: Run the Application
 
-### Step 3: Set Up the Project
-
-Now, with your new terminal window open, let's get the project ready.
-
-**A. Install Python Libraries**
-Run this command to download all the necessary code libraries.
-```cmd
-poetry install
+This is the easy part. This single command builds the Docker images and starts all services at once.
+```bash
+docker-compose up --build
 ```
+The first time you run this, it will take a few minutes to download and build everything. You will see logs from all the services in your terminal.
 
-**B. Configure Your API Key**
-The chatbot uses Google's Gemini AI. You need to give it your secret API key.
-
-1.  Make a copy of the example file by running this command:
-    ```cmd
-    copy .env.example .env
-    ```
-2.  **Get your Gemini API Key** from [Google AI Studio](https://aistudio.google.com/app/apikey).
-3.  Open the project folder in File Explorer and find the new `.env` file. Open it with **Notepad**.
-4.  Paste your key into this line:
-    ```
-    GEMINI_API_KEY=your-api-key-goes-here
-    ```
-    Save and close the file.
+To run it in the background, you can add the `-d` flag: `docker-compose up --build -d`.
 
 ### Step 4: "Teach" the AI About Your Data
 
-This command loads the information about the `students` database into the AI's memory.
-```cmd
-poetry run python tools/synchronizer.py students
+This one-time command populates the Qdrant vector database with your schema, documentation, and sample questions for the `students` domain. **Make sure your container is running.** Use `docker ps` command to see running containers.
+```bash
+docker exec -it myvanna-chatbot-api-1 python3 tools/synchronizer.py students
+```
+you can change `students` with <u>your domain</u>. Please make sure your naming is the same as folder you create at `training_data/` and add domain description at `domain_metada.json`.
+
+After your training done, **restart chatbot-api** so they can load your new domain.
+```bash
+docker compose restart chatbot-api
 ```
 
-### Step 5: Run the Application (You need 3 Terminals!)
+### Step 4.5: Populate Dummy Database - No Production Database
 
-The application runs in three parts. You must open **three separate Command Prompt windows**, all in the project folder (repeat Step 2 to open new ones). Run one command in each and leave them running.
-
-**Terminal 1️⃣: Start the Database**
-```cmd
-docker-compose up
-```
-*You will see a lot of log messages. Just leave this terminal running.*
-
-**Terminal 2️⃣: Start the Secure API**
-```cmd
-poetry run uvicorn secure_api.main:app --reload
-```
-*Leave this terminal running.*
-
-**Terminal 3️⃣: Start the Chatbot API**
-```cmd
-poetry run python run_api.py
+We use dummy to not bother production database. This database simulate as production database which will receive vanna's sql query.
+We need to "inject" database with dummies schema as follows,
+```bash
+chmod +x scripts/run_inject_schema.sh
+./scripts/run_inject_schema.sh scripts/data/chatbot_schema.sql
 ```
 
-### Step 6: Talk to the Chatbot!
+### Step 5: Talk to the Chatbot!
 
-If everything worked, you will go to localhost:8000/docs. There, you will see two API's, go try them out!
-
-Find `/chat` API and you can now ask it questions about the data! Try this one:
-`How many students are there?` (you can leave the `session_id` empty)
-
-Congratulations, you have the project running!
+1.  Open your web browser and go to: [http://localhost:8001/docs](http://localhost:8001/docs)
+2.  You will see the FastAPI interface. Find the `/chat/` endpoint and click "Try it out".
+3.  Ask a question in the `question` box. Try: `How many students are there?` (make sure `session_id` is empty or filled with past session_id)
+4.  Click "Execute". You'll see the chatbot's response!
 
 ---
 <br>
 
-## 🍎 Linux & macOS Quick Start
+## ⚙️ For Developers: The *Not-Boring* Guide
+So you wanna make Vanna less dumb (a.k.a. smarter)? Buckle up, here’s your training workflow:  
 
-This guide is for users on Linux or macOS systems.
+1. 🏗️ **Make a new playground**  
+   Create a shiny new folder in `training_data/`, call it whatever your heart desires — let’s say `<your_domain>`.  
+   (Yes, names matter. No, “test123” is not a cool domain name.)  
 
-1.  **Install Tools**: Ensure you have Python 3.10+, Docker, and Poetry installed.
-2.  **Install Dependencies**: `poetry install`
-3.  **Configure**: `cp .env.example .env` and add your `GEMINI_API_KEY`.
-4.  **Train**: `./scripts/run_training.sh students`
-5.  **Run**: Open three terminals and run the following commands:
-    *   **Terminal 1**: `docker-compose up`
-    *   **Terminal 2**: `poetry run python run_api.py`
-    *   **Terminal 3**: `poetry run python run_cli.py`
+2. 📝 **Tell the world about it**  
+   Add `<your_domain>` to `domain_metadata.json` with a description that actually matches.  
+   (If your description is “¯\_(ツ)_/¯”, future you will cry.)  
 
----
-<br>
+3. 📂 **Feed the brain**  
+   Fill up `training_data/<your_domain>` with your sacred trio:  
+   - `ddl.sql` (your schema spellbook 🧙‍♂️)  
+   - `docs.txt` (ancient scrolls of wisdom 📜)  
+   - `sql.json` (the holy JSON of queries ✨)  
+   Need inspiration? Peek at `training_data/students`.  
 
-## ⚙️ For Developers: Detailed Guide
+4. 🔄 **Change stuff? Retrain.**  
+   Anytime you tweak those files, retrain Vanna. Yes, *every time*.  
+   (She forgets faster than you after pulling an all-nighter.)  
+   See [step 3](#step-4-teach-the-ai-about-your-data).  
 
+5. 🏗️ **New schema gang?**  
+   If you’re using a dummy DB and added a new schema, don’t ghost your dummy — feed it the `ddl.sql`:  
+   1. Drop your ddl into `scripts/data/ddl.sql` (please rename it… unless you like overwriting your old stuff 🤡).  
+   2. Run [step 4.5](#step-45-populate-dummy-database---no-production-database), but swap `chatbot_schema.sql` with your ddl file.  
+
+6. 🎉 **Done!**  
+   Congrats, now you can chat with your chatbot and admire the majestic `generated_sql`.  
+   Your mission: make sure the query is correct *and* the data actually makes sense. (Otherwise, Vanna is just confidently wrong… like that one intern we don’t talk about.)  
+
+
+### Advanced Configuration
+
+-   **Multiple Domains**: To add a new domain (e.g., `faculty`), create a folder under `training_data/` with your `ddl.sql`, `docs.txt`, etc. Then, update `domain_metadata.json` and run the synchronizer: `poetry run python tools/synchronizer.py faculty`.
+-   **Stopping the Application**: To stop all running services, press `Ctrl+C` in the terminal where `docker-compose` is running. If you ran it in detached mode (`-d`), use `docker-compose down`.
+
+# ⚠️Warning: nerds only (App Dev)⚠️
+<details>
+  <summary>Show more</summary>
+
+## ⚙️ For App Developers: Detailed Guide
 ### Project Structure
-
 ```
 .
-├── docs/
-│   ├── architecture.md           # Diagram and explanation of the secure architecture
-│   └── PRD.md                    # Project Requirements Document
+├── docker-compose.yml            # Main Docker Compose to run the entire stack
+├── Dockerfile.chatbot            # Dockerfile for the main Chatbot API
+├── Dockerfile.secure_api         # Dockerfile for the Secure Executor API
 ├── src/
 │   ├── chatbot/
 │   │   └── agent.py              # Core LangGraph agent logic
 │   └── vanna_engine/
 │       ├── my_vanna.py           # The reusable, configurable Vanna engine
-│       └── config.py             # Centralized configuration loader from .env
+│       └── config.py             # Centralized configuration loader
 ├── secure_api/
 │   └── main.py                   # Secure, air-gapped FastAPI for SQL execution
 ├── tools/
-│   └── synchronizer.py           # Idempotent tool to sync training data to Qdrant
+│   └── synchronizer.py           # Tool to sync training data to Qdrant
 ├── training_data/
-│   ├── students/                 # Example domain for student data
-│   ├── faculty/                  # Example domain for faculty data
-│   └── ...
-├── tests/
-│   ├── test_integration_vanna.py # Tests for the core vanna_engine
-│   ├── test_secure_api.py        # Integration tests for the secure API
-│   └── test_chatbot_nodes.py     # Unit tests for the agent nodes
-├── scripts/
-│   ├── run_tests.sh              # Automated script to manage and run the test suite
-│   └── run_training.sh           # Convenience script for the synchronizer
-├── run_api.py                    # Entry point to run the Secure API
-├── run_cli.py                    # Entry point to run the Chatbot
-├── domain_metadata.json          # Configuration for the Domain Router
-├── docker-compose.yml            # Main Docker Compose for development
+│   └── ...                       # Folders for different data domains
 └── pyproject.toml
 ```
-
-### Advanced Configuration
-
--   **Multiple Domains**: To add a new domain (e.g., `faculty`), create a new folder under `training_data/` and populate it with `ddl.sql`, `docs.txt`, and `sql.json`. Then, update `domain_metadata.json` with a description for the new domain and train it with `./scripts/run_training.sh faculty` (or `poetry run python tools/synchronizer.py faculty` on Windows).
--   **Test Environment**: The `.env.test` file is pre-configured to run services on alternate ports to avoid conflicts. The `run_tests.sh` script handles the setup and teardown of this environment automatically.
+### 
 
 ### Running Tests
 
-To verify the entire system, run the automated test script. This will spin up the isolated test environment, run all tests, and then shut the environment down.
+To verify the system, run the automated test script. This will spin up an isolated test environment (using `docker-compose.test.yml`), run all tests, and then shut it down.
 ```bash
 ./scripts/run_tests.sh
 ```

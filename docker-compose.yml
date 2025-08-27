@@ -90,7 +90,7 @@ services:
       - chatbot-state-db
     networks:
       - myvanna_network
-    command: uvicorn src.chatbot.run_api:app --host 0.0.0.0 --port 8001
+    command: uvicorn src.chatbot.api:app --host 0.0.0.0 --port 8001
     ports:
       - "8001:8001"
 
