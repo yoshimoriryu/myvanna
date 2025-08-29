@@ -1,15 +1,20 @@
 import pytest
 from fastapi.testclient import TestClient
-import sys
-import os
-
 from secure_api.main import app
 
-# The TestClient is a special object from FastAPI for testing
-client = TestClient(app)
+
+# --- NEW: Create the client inside a fixture ---
+# This function will be run FOR EACH test that uses it, ensuring a fresh client
+# with a valid database connection every time.
+@pytest.fixture
+def client():
+    # The 'with' statement ensures the client is properly shut down
+    with TestClient(app) as c:
+        yield c
 
 
-def test_execute_sql_success():
+# --- MODIFIED: Each test now accepts the 'client' fixture as an argument ---
+def test_execute_sql_success(client):
     """
     Tests the "happy path": executing a valid, safe SQL query.
     """
@@ -18,14 +23,14 @@ def test_execute_sql_success():
         "/execute-sql",
         json={"sql": "SELECT 1 as id, 'test' as name;"},
     )
-    # Assert we get a 200 OK status
+    print(response.status_code)
+    print(response.json())
     assert response.status_code == 200
-    # Assert the response is the correct JSON data
     assert response.json() == [{"id": 1, "name": "test"}]
     print("Success path test passed.")
 
 
-def test_execute_sql_security_rejection():
+def test_execute_sql_security_rejection(client):
     """
     Tests the CRITICAL security path: ensuring the API rejects dangerous keywords.
     """
@@ -34,14 +39,12 @@ def test_execute_sql_security_rejection():
         "/execute-sql",
         json={"sql": "DELETE FROM students;"},
     )
-    # Assert we get a 403 Forbidden status
     assert response.status_code == 403
-    # Assert the error message is correct
     assert "forbidden" in response.json()["detail"].lower()
     print("Security rejection test passed.")
 
 
-def test_execute_sql_invalid_syntax():
+def test_execute_sql_invalid_syntax(client):
     """
     Tests the error handling path: sending a query with a syntax error.
     """
@@ -50,8 +53,6 @@ def test_execute_sql_invalid_syntax():
         "/execute-sql",
         json={"sql": "SELECT FROM students WHERE;"},
     )
-    # Assert we get a 400 Bad Request status, as the database will reject it
     assert response.status_code == 400
-    # Assert the error message indicates a database-level error
     assert "Error executing SQL" in response.json()["detail"]
     print("Invalid syntax test passed.")

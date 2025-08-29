@@ -107,7 +107,7 @@ So you wanna make Vanna less dumb (a.k.a. smarter)? Buckle up, here’s your tra
 
 2. 📝 **Tell the world about it**  
    Add `<your_domain>` to `domain_metadata.json` with a description that actually matches.  
-   (If your description is “¯\_(ツ)_/¯”, future you will cry.)  
+   (If your description is “¯\\_(ツ)_/¯”, future you will cry.)  
 
 3. 📂 **Feed the brain**  
    Fill up `training_data/<your_domain>` with your sacred trio:  
