@@ -130,12 +130,6 @@ So you wanna make Vanna less dumb (a.k.a. smarter)? Buckle up, here’s your tra
    Congrats, now you can chat with your chatbot and admire the majestic `generated_sql`.  
    Your mission: make sure the query is correct *and* the data actually makes sense. (Otherwise, Vanna is just confidently wrong… like that one intern we don’t talk about.)  
 
-
-### Advanced Configuration
-
--   **Multiple Domains**: To add a new domain (e.g., `faculty`), create a folder under `training_data/` with your `ddl.sql`, `docs.txt`, etc. Then, update `domain_metadata.json` and run the synchronizer: `poetry run python tools/synchronizer.py faculty`.
--   **Stopping the Application**: To stop all running services, press `Ctrl+C` in the terminal where `docker-compose` is running. If you ran it in detached mode (`-d`), use `docker-compose down`.
-
 # ⚠️Warning: nerds only (App Dev)⚠️
 <details>
   <summary>Show more</summary>
