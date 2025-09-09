@@ -29,7 +29,7 @@ def get_training_data_from_folder(domain_name: str) -> Dict[str, List[Any]]:
 
     try:
         with open(f"{base_path}/docs.txt", "r") as f:
-            training_data["documentation"] = [doc.strip() for doc in f.readlines() if doc.strip()]
+            training_data["documentation"] = [f.read()]
             print(f"Found {len(training_data['documentation'])} documentation entries.")
     except FileNotFoundError:
         print("Warning: 'docs.txt' not found.")
