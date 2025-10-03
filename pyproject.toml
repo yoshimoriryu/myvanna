@@ -21,6 +21,7 @@ python-dotenv = "^1.1.1"
 google-genai = "^1.30.0"
 google-cloud-aiplatform = ">=1.38"
 langgraph = "^0.6.5"
+faker = "^37.8.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.1"
