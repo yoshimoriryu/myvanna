@@ -98,39 +98,39 @@ chmod +x scripts/run_inject_schema.sh
 ---
 <br>
 
-## ⚙️ For Developers: The *Not-Boring* Guide
-So you wanna make Vanna less dumb (a.k.a. smarter)? Buckle up, here’s your training workflow:  
+## ⚙️ Developer Guide: Training Workflow
+After "Hello World" above, below is what you should do to increase Vanna's capability (New domain and/or changes on training_files/):
 
-1. 🏗️ **Make a new playground**  
-   Create a shiny new folder in `training_data/`, call it whatever your heart desires — let’s say `<your_domain>`.  
-   (Yes, names matter. No, “test123” is not a cool domain name.)  
+1. 🏗️ **Create a New Domain Directory**  
+   Establish a new folder within `training_data/` and assign it an appropriate domain name (e.g., `<your_domain>`).  
+   Note: Select a descriptive and meaningful name for proper organization and future reference.
 
-2. 📝 **Tell the world about it**  
-   Add `<your_domain>` to `domain_metadata.json` with a description that actually matches.  
-   (If your description is “¯\\_(ツ)_/¯”, future you will cry.)  
+2. 📝 **Update Domain Metadata**  
+   Add an entry for `<your_domain>` in `domain_metadata.json` with an accurate description that corresponds to the domain's purpose and scope.  
+   Ensure the description is clear and informative for future maintainability.
 
-3. 📂 **Feed the brain**  
-   Fill up `training_data/<your_domain>` with your sacred trio:  
-   - `ddl.sql` (your schema spellbook 🧙‍♂️)  
-   - `docs.txt` (ancient scrolls of wisdom 📜)  
-   - `sql.json` (the holy JSON of queries ✨)  
-   Need inspiration? Peek at `training_data/students`.  
+3. 📂 **Populate Training Data**  
+   Provide the necessary training files in `training_data/<your_domain>` directory:  
+   - `ddl.sql` – Database schema definitions
+   - `docs.txt` – Documentation and contextual information
+   - `sql.json` – Sample SQL queries and examples
+   
+   Reference the `training_data/students` directory for implementation examples.
 
-4. 🔄 **Change stuff? Retrain.**  
-   Anytime you tweak those files, retrain Vanna. Yes, *every time*.  
-   (She forgets faster than you after pulling an all-nighter.)  
-   See [step 3](#step-4-teach-the-ai-about-your-data).  
+4. 🔄 **Retrain After Modifications**  
+   Execute the retraining process whenever changes are made to the training files to ensure Vanna incorporates the latest information.  
+   Refer to [step 3](#step-4-teach-the-ai-about-your-data) for detailed retraining instructions.
 
-5. 🏗️ **New schema gang?**  
-   If you’re using a dummy DB and added a new schema, don’t ghost your dummy — feed it the `ddl.sql`:  
-   1. Drop your ddl into `scripts/data/ddl.sql` (please rename it… unless you like overwriting your old stuff 🤡).  
-   2. Run [step 4.5](#step-45-populate-dummy-database---no-production-database), but swap `chatbot_schema.sql` with your ddl file.  
+5. 🏗️ **Initialize New Database Schemas**  
+   When working with a dummy database and implementing a new schema, follow these procedures:  
+   1. Place the DDL file in `scripts/data/ddl.sql` (rename appropriately to avoid overwriting existing files).
+   2. Execute [step 4.5](#step-45-populate-dummy-database---no-production-database), substituting `chatbot_schema.sql` with your DDL filename.
 
-6. 🎉 **Done!**  
-   Congrats, now you can chat with your chatbot and admire the majestic `generated_sql`.  
-   Your mission: make sure the query is correct *and* the data actually makes sense. (Otherwise, Vanna is just confidently wrong… like that one intern we don’t talk about.)  
+6. 🎉 **Validation and Testing**  
+   After completing the training workflow, interact with the chatbot and review the `generated_sql` output.  
+   Verify that both the query syntax is correct and the returned data meets expected results to ensure system reliability.
 
-# ⚠️Warning: nerds only (App Dev)⚠️
+# App Dev Details:
 <details>
   <summary>Show more</summary>
 
